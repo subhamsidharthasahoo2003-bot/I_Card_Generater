@@ -84,14 +84,14 @@ export function isRemotePhotoUrl(str: string): boolean {
 }
 
 /**
- * Converts a Google Drive link to a direct high-resolution image URL
+ * Converts a Google Drive link to a direct high-resolution image URL.
+ * Uses lh3.googleusercontent.com/d/ which is Google's direct public CDN format.
  */
 export function formatGoogleDriveImageUrl(url: string): string {
   if (!url) return '';
   const fileId = extractGoogleDriveFileId(url);
   if (fileId) {
-    // High-resolution direct thumbnail stream from Google Drive CDN
-    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+    return `https://lh3.googleusercontent.com/d/${fileId}`;
   }
   return url.trim();
 }

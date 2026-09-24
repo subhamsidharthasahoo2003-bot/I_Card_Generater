@@ -19,15 +19,21 @@ export const IDCardFront: React.FC<IDCardFrontProps> = ({
 }) => {
   return (
     <div
-      className={`relative cr80-card bg-white rounded-lg shadow-sm border border-neutral-300 overflow-hidden flex flex-col justify-between select-none text-neutral-900 ${className}`}
+      className={`relative cr80-card bg-white rounded-lg border border-neutral-300 overflow-hidden flex flex-col justify-between select-none text-neutral-900 ${className}`}
       style={{
         width: '85.6mm',
         height: '53.98mm',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        backgroundColor: '#ffffff',
+        borderColor: '#cbd5e1',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
       }}
     >
       {/* Top Black Header with Orange Accent Line */}
-      <div className="bg-black text-white px-3 py-1 flex items-center justify-between border-b-2 border-orange-500">
+      <div
+        className="text-white px-3 py-1 flex items-center justify-between"
+        style={{ backgroundColor: '#000000', borderBottom: '2px solid #ea580c' }}
+      >
         <div className="flex items-center gap-1.5 overflow-hidden">
           {company.logoUrl ? (
             <img
@@ -36,7 +42,10 @@ export const IDCardFront: React.FC<IDCardFrontProps> = ({
               className="w-4 h-4 object-contain rounded-xs"
             />
           ) : (
-            <div className="w-4 h-4 bg-orange-600 rounded-xs flex items-center justify-center shrink-0">
+            <div
+              className="w-4 h-4 rounded-xs flex items-center justify-center shrink-0"
+              style={{ backgroundColor: '#ea580c' }}
+            >
               <Building2 className="w-2.5 h-2.5 text-white" />
             </div>
           )}
@@ -44,7 +53,10 @@ export const IDCardFront: React.FC<IDCardFrontProps> = ({
             {company.name}
           </span>
         </div>
-        <span className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded-xs bg-orange-500 text-black tracking-wider">
+        <span
+          className="text-[7px] font-black uppercase px-1.5 py-0.5 rounded-xs tracking-wider"
+          style={{ backgroundColor: '#f97316', color: '#000000' }}
+        >
           TEMPORARY
         </span>
       </div>
@@ -53,7 +65,14 @@ export const IDCardFront: React.FC<IDCardFrontProps> = ({
       <div className="flex-1 px-3 py-1.5 flex gap-3 items-center bg-white">
         {/* Photo Section with Black border & Orange accent */}
         <div className="flex flex-col items-center shrink-0">
-          <div className="w-[20.5mm] h-[24.5mm] rounded-md border-2 border-black overflow-hidden bg-neutral-100 flex items-center justify-center shadow-xs">
+          <div
+            className="w-[20.5mm] h-[24.5mm] rounded-md border-2 border-black overflow-hidden flex items-center justify-center"
+            style={{
+              backgroundColor: '#f8fafc',
+              borderColor: '#000000',
+              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.06)'
+            }}
+          >
             {employee.photoUrl ? (
               <img
                 src={employee.photoUrl}
@@ -63,7 +82,13 @@ export const IDCardFront: React.FC<IDCardFrontProps> = ({
                 onError={(e) => {
                   const target = e.currentTarget;
                   const currentSrc = target.src;
-                  if (currentSrc.includes('drive.google.com/thumbnail')) {
+                  if (currentSrc.includes('lh3.googleusercontent.com/d/')) {
+                    const match = currentSrc.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                    if (match && match[1]) {
+                      target.src = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
+                      return;
+                    }
+                  } else if (currentSrc.includes('drive.google.com/thumbnail')) {
                     const match = currentSrc.match(/id=([a-zA-Z0-9_-]+)/);
                     if (match && match[1]) {
                       target.src = `https://lh3.googleusercontent.com/d/${match[1]}`;
@@ -139,7 +164,10 @@ export const IDCardFront: React.FC<IDCardFrontProps> = ({
 
         {/* QR Code Section */}
         <div className="flex flex-col items-center justify-center shrink-0">
-          <div className="p-0.5 bg-white border border-neutral-300 rounded-sm shadow-2xs">
+          <div
+            className="p-0.5 bg-white border border-neutral-300 rounded-sm"
+            style={{ boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}
+          >
             {employee.qrCodeDataUrl ? (
               <img
                 src={employee.qrCodeDataUrl}
@@ -159,12 +187,19 @@ export const IDCardFront: React.FC<IDCardFrontProps> = ({
       </div>
 
       {/* Footer Banner: Solid Corporate Orange with Black & White text */}
-      <div className="bg-orange-600 text-white px-3 py-0.5 flex items-center justify-between text-[7px] font-extrabold border-t border-orange-700">
+      <div
+        className="text-white px-3 py-0.5 flex items-center justify-between text-[7px] font-extrabold"
+        style={{ backgroundColor: '#ea580c', borderTop: '1px solid #c2410c' }}
+      >
         <span className="tracking-wider text-white">TEMPORARY EMPLOYEE ID CARD</span>
-        <span className="font-mono text-black bg-white px-1 py-0.2 rounded-2xs text-[6.5px] font-bold">
+        <span
+          className="font-mono px-1 py-0.2 rounded-2xs text-[6.5px] font-bold"
+          style={{ backgroundColor: '#ffffff', color: '#000000' }}
+        >
           EXP: {formatDisplayDate(employee.validUntil)}
         </span>
       </div>
     </div>
   );
 };
+

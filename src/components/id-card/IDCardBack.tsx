@@ -19,15 +19,21 @@ export const IDCardBack: React.FC<IDCardBackProps> = ({
 }) => {
   return (
     <div
-      className={`relative cr80-card bg-white rounded-lg shadow-sm border border-neutral-300 overflow-hidden flex flex-col justify-between select-none text-neutral-900 ${className}`}
+      className={`relative cr80-card bg-white rounded-lg border border-neutral-300 overflow-hidden flex flex-col justify-between select-none text-neutral-900 ${className}`}
       style={{
         width: '85.6mm',
         height: '53.98mm',
-        boxSizing: 'border-box'
+        boxSizing: 'border-box',
+        backgroundColor: '#ffffff',
+        borderColor: '#cbd5e1',
+        boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)'
       }}
     >
       {/* Black Magnetic Stripe Bar with Orange Sub-Stripe */}
-      <div className="bg-black h-[7mm] w-full flex items-center justify-between px-3 text-white border-b-2 border-orange-500">
+      <div
+        className="h-[7mm] w-full flex items-center justify-between px-3 text-white"
+        style={{ backgroundColor: '#000000', borderBottom: '2px solid #ea580c' }}
+      >
         <span className="font-mono text-[7px] text-neutral-300 tracking-widest font-semibold">
           SECURITY ACCESS • TEMPORARY PASS
         </span>

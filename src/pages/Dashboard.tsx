@@ -210,7 +210,23 @@ export const Dashboard: React.FC = () => {
                     <img
                       src={emp.photoUrl}
                       alt={emp.name}
+                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover object-top"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        const src = target.src;
+                        if (src.includes('lh3.googleusercontent.com/d/')) {
+                          const match = src.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                          if (match && match[1]) {
+                            target.src = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
+                          }
+                        } else if (src.includes('drive.google.com/thumbnail')) {
+                          const match = src.match(/id=([a-zA-Z0-9_-]+)/);
+                          if (match && match[1]) {
+                            target.src = `https://lh3.googleusercontent.com/d/${match[1]}`;
+                          }
+                        }
+                      }}
                     />
                   ) : (
                     <Users className="w-5 h-5 text-slate-400" />

@@ -65,21 +65,30 @@ export async function downloadSingleCardPDF(
 }
 
 /**
- * Prints a single employee's ID card cleanly in an isolated printable window/iframe
+ * Prints a single employee's ID card cleanly in an isolated printable window/iframe.
+ * Uses direct vector DOM cloning with embedded stylesheets for maximum crispness,
+ * zero canvas CORS restrictions, and instant print preview loading.
  */
 export async function printSingleCard(frontEl: HTMLElement, backEl?: HTMLElement | null): Promise<void> {
   if (!frontEl) {
     throw new Error('Front card element not found.');
   }
 
-  // Render high-res images of both sides
-  const frontCanvas = await renderElementToCanvas(frontEl, 3);
-  const frontImg = frontCanvas.toDataURL('image/png', 1.0);
-
-  let backImg = '';
+  // Clone front and back elements
+  const frontClone = frontEl.cloneNode(true) as HTMLElement;
+  let backClone: HTMLElement | null = null;
   if (backEl) {
-    const backCanvas = await renderElementToCanvas(backEl, 3);
-    backImg = backCanvas.toDataURL('image/png', 1.0);
+    backClone = backEl.cloneNode(true) as HTMLElement;
+  }
+
+  // Normalize transforms
+  frontClone.style.transform = 'none';
+  frontClone.style.margin = '0 auto';
+  frontClone.style.boxShadow = 'none';
+  if (backClone) {
+    backClone.style.transform = 'none';
+    backClone.style.margin = '0 auto';
+    backClone.style.boxShadow = 'none';
   }
 
   // Create isolated print iframe
@@ -99,71 +108,110 @@ export async function printSingleCard(frontEl: HTMLElement, backEl?: HTMLElement
     return;
   }
 
+  // Copy stylesheets and style tags
+  const currentStyles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+    .map(el => el.outerHTML)
+    .join('\n');
+
   doc.open();
   doc.write(`
     <!DOCTYPE html>
     <html>
       <head>
         <title>Print ID Card</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+        ${currentStyles}
         <style>
           @page {
             size: auto;
-            margin: 10mm;
+            margin: 8mm;
+          }
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           body {
             margin: 0;
-            padding: 10mm;
-            font-family: sans-serif;
+            padding: 8mm;
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            background: #ffffff !important;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 12mm;
+            gap: 10mm;
           }
-          .card-container {
+          .print-card-slot {
             width: 85.6mm;
             height: 53.98mm;
-            border: 1px dashed #cbd5e1;
             box-sizing: border-box;
             page-break-inside: avoid;
+            break-inside: avoid;
             display: flex;
             align-items: center;
             justify-content: center;
           }
-          img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
-          }
           @media print {
-            .card-container {
-              border: 0.5pt solid #e2e8f0;
+            body {
+              padding: 0;
+            }
+            .print-card-slot {
+              page-break-inside: avoid;
+              break-inside: avoid;
             }
           }
         </style>
       </head>
       <body>
-        <div class="card-container">
-          <img src="${frontImg}" alt="ID Card Front" />
-        </div>
-        ${
-          backImg
-            ? `<div class="card-container">
-                 <img src="${backImg}" alt="ID Card Back" />
-               </div>`
-            : ''
-        }
+        <div class="print-card-slot" id="print-front-slot"></div>
+        ${backClone ? '<div class="print-card-slot" id="print-back-slot"></div>' : ''}
       </body>
     </html>
   `);
   doc.close();
 
-  // Wait for images to load in iframe then trigger print
+  const frontSlot = doc.getElementById('print-front-slot');
+  if (frontSlot) frontSlot.appendChild(frontClone);
+
+  if (backClone) {
+    const backSlot = doc.getElementById('print-back-slot');
+    if (backSlot) backSlot.appendChild(backClone);
+  }
+
+  // Wait for all images in the print iframe to resolve
+  const images = Array.from(doc.images);
+  await Promise.all(
+    images.map(
+      img =>
+        new Promise(resolve => {
+          if (img.complete) {
+            resolve(true);
+          } else {
+            img.onload = () => resolve(true);
+            img.onerror = () => resolve(false);
+            setTimeout(() => resolve(false), 2000);
+          }
+        })
+    )
+  );
+
   setTimeout(() => {
-    printIframe.contentWindow?.focus();
-    printIframe.contentWindow?.print();
-    setTimeout(() => {
-      document.body.removeChild(printIframe);
-    }, 1000);
-  }, 350);
+    try {
+      printIframe.contentWindow?.focus();
+      printIframe.contentWindow?.print();
+    } catch {
+      window.print();
+    } finally {
+      setTimeout(() => {
+        try {
+          if (document.body.contains(printIframe)) {
+            document.body.removeChild(printIframe);
+          }
+        } catch {
+          // ignore
+        }
+      }, 3000);
+    }
+  }, 250);
 }
