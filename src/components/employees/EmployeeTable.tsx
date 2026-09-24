@@ -214,6 +214,25 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                           alt={emp.name}
                           referrerPolicy="no-referrer"
                           className="w-full h-full object-cover object-top"
+                          onError={(e) => {
+                            const target = e.currentTarget;
+                            const src = target.src;
+                            if (src.includes('drive.google.com/thumbnail')) {
+                              const match = src.match(/id=([a-zA-Z0-9_-]+)/);
+                              if (match && match[1]) {
+                                target.src = `https://lh3.googleusercontent.com/d/${match[1]}`;
+                                return;
+                              }
+                            }
+                            target.style.display = 'none';
+                            const parent = target.parentElement;
+                            if (parent && !parent.querySelector('.table-fallback')) {
+                              const fb = document.createElement('div');
+                              fb.className = 'table-fallback text-[10px] font-bold text-slate-500 uppercase';
+                              fb.textContent = emp.name.slice(0, 2);
+                              parent.appendChild(fb);
+                            }
+                          }}
                         />
                       ) : (
                         <UserX className="w-4 h-4 text-slate-400" />

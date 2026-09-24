@@ -33,12 +33,52 @@ export function convertCssColorToRgb(colorStr: string): string {
   }
 }
 
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Pre-fetches a remote image and inlines it as a base64 Data URL to avoid CORS taint
+ */
+export async function inlineImageToDataUrl(url: string): Promise<string> {
+  if (!url || url.startsWith('data:')) return url;
+
+  // 1. Try direct fetch
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (res.ok) {
+      const blob = await res.blob();
+      return await blobToDataUrl(blob);
+    }
+  } catch {
+    // Direct fetch failed due to CORS, proceed to proxy
+  }
+
+  // 2. Try corsproxy.io
+  try {
+    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
+    const res = await fetch(proxyUrl);
+    if (res.ok) {
+      const blob = await res.blob();
+      return await blobToDataUrl(blob);
+    }
+  } catch {
+    // Proxy failed
+  }
+
+  return url;
+}
+
 /**
  * Sanitizes a cloned DOM document before html2canvas parses styles:
  * 1. Converts all oklch() color functions to rgb/hex on all elements
  * 2. Sanitizes oklch() in all <style> tags
  * 3. Removes external stylesheet <link> tags to prevent 404 network aborts
- * 4. Proxies any remaining Google Drive images with CORS support
  */
 export function sanitizeClonedDocument(clonedDoc: Document): void {
   // 1. Remove all <link rel="stylesheet"> tags to prevent 404 network errors in iframe
@@ -101,21 +141,12 @@ export function sanitizeClonedDocument(clonedDoc: Document): void {
       // Ignore cross-origin frame styles if any
     }
   });
-
-  // 4. Ensure any Google Drive images use the CORS proxy so they don't get blocked
-  const imgs = clonedDoc.querySelectorAll('img');
-  imgs.forEach(img => {
-    const src = img.getAttribute('src') || '';
-    if (src.includes('drive.google.com') && !src.includes('wsrv.nl')) {
-      img.src = `https://wsrv.nl/?url=${encodeURIComponent(src)}`;
-    }
-  });
 }
 
 /**
  * Robust wrapper around html2canvas that handles:
  * - Tailwind v4 oklch() color conversions
- * - Google Drive CORS image proxying
+ * - Inlining remote images as Data URLs for CORS-safe capture
  * - Dimension bounds checking
  */
 export async function renderElementToCanvas(
@@ -126,17 +157,41 @@ export async function renderElementToCanvas(
   const width = Math.max(rect.width, element.offsetWidth, 323);
   const height = Math.max(rect.height, element.offsetHeight, 204);
 
-  return await html2canvas(element, {
-    scale: customScale,
-    useCORS: true,
-    allowTaint: false,
-    logging: false,
-    width,
-    height,
-    imageTimeout: 6000,
-    backgroundColor: '#ffffff',
-    onclone: clonedDoc => {
-      sanitizeClonedDocument(clonedDoc);
-    }
-  });
+  // Pre-convert any remote images to DataURLs in the DOM
+  const imgs = Array.from(element.querySelectorAll('img'));
+  const originalSrcs = new Map<HTMLImageElement, string>();
+
+  try {
+    await Promise.all(
+      imgs.map(async img => {
+        const src = img.getAttribute('src');
+        if (src && !src.startsWith('data:')) {
+          originalSrcs.set(img, src);
+          const dataUrl = await inlineImageToDataUrl(src);
+          if (dataUrl && dataUrl.startsWith('data:')) {
+            img.src = dataUrl;
+          }
+        }
+      })
+    );
+
+    return await html2canvas(element, {
+      scale: customScale,
+      useCORS: true,
+      allowTaint: false,
+      logging: false,
+      width,
+      height,
+      imageTimeout: 5000,
+      backgroundColor: '#ffffff',
+      onclone: clonedDoc => {
+        sanitizeClonedDocument(clonedDoc);
+      }
+    });
+  } finally {
+    // Restore original URLs so screen display remains intact
+    originalSrcs.forEach((originalSrc, img) => {
+      img.src = originalSrc;
+    });
+  }
 }

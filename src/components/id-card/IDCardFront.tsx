@@ -62,6 +62,14 @@ export const IDCardFront: React.FC<IDCardFrontProps> = ({
                 className="w-full h-full object-cover object-top"
                 onError={(e) => {
                   const target = e.currentTarget;
+                  const currentSrc = target.src;
+                  if (currentSrc.includes('drive.google.com/thumbnail')) {
+                    const match = currentSrc.match(/id=([a-zA-Z0-9_-]+)/);
+                    if (match && match[1]) {
+                      target.src = `https://lh3.googleusercontent.com/d/${match[1]}`;
+                      return;
+                    }
+                  }
                   target.style.display = 'none';
                   const parent = target.parentElement;
                   if (parent && !parent.querySelector('.img-fallback')) {
@@ -71,7 +79,7 @@ export const IDCardFront: React.FC<IDCardFrontProps> = ({
                       <span class="text-[6.5px] font-bold text-neutral-500 uppercase tracking-tighter text-center leading-tight font-sans">
                         ${employee.name.split(' ').slice(0, 2).map(n => n[0]).join('')}
                       </span>
-                      <span class="text-[5.5px] font-semibold text-orange-600 mt-0.5 leading-none">Access Restricted</span>
+                      <span class="text-[5.5px] font-semibold text-orange-600 mt-0.5 leading-none">Photo Unavailable</span>
                     `;
                     parent.appendChild(fallback);
                   }
