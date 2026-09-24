@@ -15,138 +15,107 @@ function getColorConverterCtx(): CanvasRenderingContext2D | null {
 }
 
 /**
- * Converts any CSS color string (such as Tailwind v4's oklch(...) or lab(...))
- * into standard hex or rgba(...) that html2canvas can parse without errors.
+ * Converts a single oklch(...) color string into standard #hex or rgba(...)
  */
-export function convertCssColorToRgb(colorStr: string): string {
-  if (!colorStr || typeof colorStr !== 'string' || !colorStr.includes('oklch')) {
-    return colorStr;
-  }
+function singleOklchToRgb(oklchColor: string): string {
   const ctx = getColorConverterCtx();
-  if (!ctx) return colorStr;
+  if (!ctx) return oklchColor;
   try {
     ctx.fillStyle = '#000000';
-    ctx.fillStyle = colorStr;
+    ctx.fillStyle = oklchColor;
     return ctx.fillStyle; // Browser converts to #hex or rgba(...)!
   } catch {
-    return colorStr;
+    return oklchColor;
   }
-}
-
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(blob);
-  });
 }
 
 /**
- * Pre-fetches a remote image and inlines it as a base64 Data URL to avoid CORS taint
+ * Replaces all occurrences of oklch(...) inside any CSS string
+ * (colors, borders, box-shadows, gradients, filters, etc.) with rgb/rgba/#hex.
  */
-export async function inlineImageToDataUrl(url: string): Promise<string> {
-  if (!url || url.startsWith('data:')) return url;
-
-  // 1. Try direct fetch
-  try {
-    const res = await fetch(url, { mode: 'cors' });
-    if (res.ok) {
-      const blob = await res.blob();
-      return await blobToDataUrl(blob);
-    }
-  } catch {
-    // Direct fetch failed due to CORS, proceed to proxy
+export function sanitizeOklchInString(cssValue: string): string {
+  if (!cssValue || typeof cssValue !== 'string' || !cssValue.includes('oklch')) {
+    return cssValue;
   }
+  return cssValue.replace(/oklch\([^)]+\)/g, match => singleOklchToRgb(match));
+}
 
-  // 2. Try corsproxy.io
-  try {
-    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(url)}`;
-    const res = await fetch(proxyUrl);
-    if (res.ok) {
-      const blob = await res.blob();
-      return await blobToDataUrl(blob);
-    }
-  } catch {
-    // Proxy failed
-  }
-
-  return url;
+/**
+ * Patches window.getComputedStyle so html2canvas NEVER encounters any oklch() color functions.
+ * All properties (colors, borders, box-shadows, etc.) are converted to standard sRGB on the fly.
+ */
+export function patchWindowGetComputedStyle(win: Window): () => void {
+  const orig = win.getComputedStyle;
+  win.getComputedStyle = function (el: Element, pseudo?: string | null) {
+    const style = orig.call(this, el, pseudo);
+    return new Proxy(style, {
+      get(target, prop) {
+        if (prop === 'getPropertyValue') {
+          return (p: string) => {
+            const v = target.getPropertyValue(p);
+            return typeof v === 'string' && v.includes('oklch') ? sanitizeOklchInString(v) : v;
+          };
+        }
+        const val = target[prop as keyof CSSStyleDeclaration];
+        if (typeof val === 'string' && val.includes('oklch')) {
+          return sanitizeOklchInString(val);
+        }
+        // Bind functions like item(), getPropertyPriority(), etc.
+        if (typeof val === 'function') {
+          return (val as Function).bind(target);
+        }
+        return val;
+      }
+    });
+  };
+  return () => {
+    win.getComputedStyle = orig;
+  };
 }
 
 /**
  * Sanitizes a cloned DOM document before html2canvas parses styles:
- * 1. Converts all oklch() color functions to rgb/hex on all elements
- * 2. Sanitizes oklch() in all <style> tags
- * 3. Removes external stylesheet <link> tags to prevent 404 network aborts
+ * 1. Patches the cloned window's getComputedStyle
+ * 2. Removes external stylesheet <link> tags to prevent 404 network aborts
+ * 3. Sanitizes all inline <style> tags
  */
 export function sanitizeClonedDocument(clonedDoc: Document): void {
-  // 1. Remove all <link rel="stylesheet"> tags to prevent 404 network errors in iframe
+  // 1. Patch the cloned iframe's window getComputedStyle
+  if (clonedDoc.defaultView) {
+    patchWindowGetComputedStyle(clonedDoc.defaultView);
+  }
+
+  // 2. Remove all <link rel="stylesheet"> tags to prevent 404 network errors in iframe
   const linkTags = clonedDoc.querySelectorAll('link[rel="stylesheet"]');
   linkTags.forEach(link => link.remove());
 
-  // 2. Sanitize any inline <style> blocks containing oklch
+  // 3. Sanitize any inline <style> blocks containing oklch
   const styleTags = clonedDoc.querySelectorAll('style');
   styleTags.forEach(style => {
     if (style.textContent && style.textContent.includes('oklch')) {
-      style.textContent = style.textContent.replace(/oklch\([^)]+\)/g, match =>
-        convertCssColorToRgb(match)
-      );
+      style.textContent = sanitizeOklchInString(style.textContent);
     }
   });
 
-  // 3. Convert computed oklch colors on every DOM element
-  const colorProps = [
-    'color',
-    'backgroundColor',
-    'borderColor',
-    'borderTopColor',
-    'borderRightColor',
-    'borderBottomColor',
-    'borderLeftColor',
-    'outlineColor',
-    'fill',
-    'stroke'
-  ];
-
+  // 4. Fallback: also sanitize inline style attributes directly on cloned elements
   const allElements = clonedDoc.querySelectorAll('*');
   allElements.forEach(el => {
     if (!(el instanceof HTMLElement || el instanceof SVGElement)) return;
-
     try {
-      const computed = window.getComputedStyle(el);
-
-      // Check standard color properties
-      for (const prop of colorProps) {
-        // @ts-ignore
-        const val = computed[prop];
-        if (val && typeof val === 'string' && val.includes('oklch')) {
-          // @ts-ignore
-          el.style[prop] = convertCssColorToRgb(val);
-        }
-      }
-
-      // Convert shadow colors
-      if (computed.boxShadow && computed.boxShadow.includes('oklch')) {
-        el.style.boxShadow = computed.boxShadow.replace(/oklch\([^)]+\)/g, m =>
-          convertCssColorToRgb(m)
-        );
-      }
-      if (computed.textShadow && computed.textShadow.includes('oklch')) {
-        el.style.textShadow = computed.textShadow.replace(/oklch\([^)]+\)/g, m =>
-          convertCssColorToRgb(m)
-        );
+      const styleAttr = el.getAttribute('style');
+      if (styleAttr && styleAttr.includes('oklch')) {
+        el.setAttribute('style', sanitizeOklchInString(styleAttr));
       }
     } catch {
-      // Ignore cross-origin frame styles if any
+      // ignore
     }
   });
 }
 
 /**
- * Robust wrapper around html2canvas that handles:
- * - Tailwind v4 oklch() color conversions
- * - Inlining remote images as Data URLs for CORS-safe capture
+ * Robust wrapper around html2canvas that guarantees:
+ * - Zero "unsupported color function oklch" crashes
+ * - Safe rendering without iframe stylesheet 404 aborts
  * - Dimension bounds checking
  */
 export async function renderElementToCanvas(
@@ -157,24 +126,10 @@ export async function renderElementToCanvas(
   const width = Math.max(rect.width, element.offsetWidth, 323);
   const height = Math.max(rect.height, element.offsetHeight, 204);
 
-  // Pre-convert any remote images to DataURLs in the DOM
-  const imgs = Array.from(element.querySelectorAll('img'));
-  const originalSrcs = new Map<HTMLImageElement, string>();
+  // Patch main window getComputedStyle during html2canvas execution as well
+  const restoreMainWindow = patchWindowGetComputedStyle(window);
 
   try {
-    await Promise.all(
-      imgs.map(async img => {
-        const src = img.getAttribute('src');
-        if (src && !src.startsWith('data:')) {
-          originalSrcs.set(img, src);
-          const dataUrl = await inlineImageToDataUrl(src);
-          if (dataUrl && dataUrl.startsWith('data:')) {
-            img.src = dataUrl;
-          }
-        }
-      })
-    );
-
     return await html2canvas(element, {
       scale: customScale,
       useCORS: true,
@@ -182,16 +137,13 @@ export async function renderElementToCanvas(
       logging: false,
       width,
       height,
-      imageTimeout: 5000,
+      imageTimeout: 3000,
       backgroundColor: '#ffffff',
       onclone: clonedDoc => {
         sanitizeClonedDocument(clonedDoc);
       }
     });
   } finally {
-    // Restore original URLs so screen display remains intact
-    originalSrcs.forEach((originalSrc, img) => {
-      img.src = originalSrc;
-    });
+    restoreMainWindow();
   }
 }
