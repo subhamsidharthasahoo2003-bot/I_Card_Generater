@@ -11,7 +11,10 @@ import {
   CheckCircle2,
   FileSignature,
   Palette,
-  Shield
+  Shield,
+  QrCode,
+  Smartphone,
+  Globe
 } from 'lucide-react';
 
 export const Settings: React.FC = () => {
@@ -316,6 +319,55 @@ export const Settings: React.FC = () => {
               <p className="text-[10px] text-slate-400 mt-1">
                 Default: "This card is strictly temporary and remains property of the company. If found, please return to the Security Desk immediately."
               </p>
+            </div>
+          </div>
+        </div>
+
+        {/* QR Code & Mobile Verification Settings */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
+            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+              <QrCode className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">
+                Google Lens Scanner & Mobile Download Settings
+              </h3>
+              <p className="text-xs text-slate-500">
+                Configure the web URL embedded in employee card QR codes so employees can scan with Google Lens to download their card.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">
+                Public Verification Base URL
+              </label>
+              <div className="relative">
+                <Globe className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  name="verificationBaseUrl"
+                  placeholder={typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}
+                  value={formData.verificationBaseUrl || ''}
+                  onChange={handleInputChange}
+                  className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl bg-slate-50/50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono"
+                />
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1.5 leading-relaxed">
+                When an employee scans their ID card with <strong>Google Lens</strong> or a smartphone camera, Google will detect this link and show <em>"Open link"</em>. Leave blank to automatically use current domain (<code className="text-indigo-600">{typeof window !== 'undefined' ? window.location.origin : 'local'}</code>).
+              </p>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex items-start gap-3">
+              <Smartphone className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
+              <div className="space-y-1 text-slate-600">
+                <p className="font-semibold text-slate-800">How Google Lens Download Works:</p>
+                <p className="text-[11px] leading-relaxed">
+                  Every generated QR code encodes the employee credentials and links directly to the mobile download page (<code className="text-slate-800">/verify</code>). Employees can open the link to view their digital ID card and download front/back images (PNG) or PDF directly to their phone.
+                </p>
+              </div>
             </div>
           </div>
         </div>

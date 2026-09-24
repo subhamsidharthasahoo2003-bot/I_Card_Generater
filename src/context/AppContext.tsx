@@ -23,7 +23,7 @@ interface AppContextType {
   setValidityConfig: (config: ValidityConfig) => void;
   updateValidityPreset: (preset: ValidityPreset, customDate?: string) => void;
   updateSingleEmployeeValidity: (id: string, validUntil: string) => void;
-  ensureQRCodesGenerated: () => Promise<void>;
+  ensureQRCodesGenerated: (force?: boolean) => Promise<void>;
   updateCompanySettings: (settings: Partial<CompanySettings>) => void;
   recordPrintJob: (count: number) => void;
   clearTemporaryData: () => void;
@@ -173,21 +173,28 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   }, []);
 
   // Ensure QR Codes are generated for employees
-  const ensureQRCodesGenerated = useCallback(async () => {
-    const needsQR = employees.some(e => !e.qrCodeDataUrl);
+  const ensureQRCodesGenerated = useCallback(async (force: boolean = false) => {
+    const needsQR = force || employees.some(e => !e.qrCodeDataUrl);
     if (!needsQR) return;
 
     setIsGeneratingQRs(true);
     try {
       const updatedEmployees = await Promise.all(
         employees.map(async emp => {
-          if (emp.qrCodeDataUrl) return emp;
+          if (!force && emp.qrCodeDataUrl) return emp;
           const qrUrl = await generateCardQRCode({
             id: emp.id,
             name: emp.name,
+            designation: emp.designation,
+            department: emp.department,
+            phone: emp.phone,
+            email: emp.email,
+            dob: emp.dob,
+            bloodGroup: emp.bloodGroup,
             issueDate: emp.issueDate,
             validUntil: emp.validUntil,
-            company: companySettings.name
+            company: companySettings.name,
+            baseUrl: companySettings.verificationBaseUrl
           });
           return {
             ...emp,
@@ -201,7 +208,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     } finally {
       setIsGeneratingQRs(false);
     }
-  }, [employees, companySettings.name]);
+  }, [employees, companySettings.name, companySettings.verificationBaseUrl]);
 
   const recordPrintJob = useCallback((count: number) => {
     setCardsPrintedCount(prev => prev + count);

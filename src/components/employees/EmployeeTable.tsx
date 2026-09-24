@@ -12,7 +12,8 @@ import {
   AlertCircle,
   CheckCircle2,
   UserX,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Printer
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
@@ -283,6 +284,14 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                   {/* Action Buttons */}
                   <td className="py-2.5 px-3 text-right">
                     <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => onViewCard(emp)}
+                        title="Print / Download Single Card"
+                        className="p-1.5 text-slate-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
+                      >
+                        <Printer className="w-4 h-4" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => onViewCard(emp)}

@@ -10,23 +10,68 @@ import { Employees } from './pages/Employees';
 import { IDCardGenerator } from './pages/IDCardGenerator';
 import { PrintPreview } from './pages/PrintPreview';
 import { Settings } from './pages/Settings';
+import { VerifyCard } from './pages/VerifyCard';
 
 export const App: React.FC = () => {
   return (
     <BrowserRouter>
       <AppProvider>
         <ToastProvider>
-          <AppLayout>
-            <Routes>
-              <Route path="/" element={<Dashboard />} />
-              <Route path="/import" element={<ExcelImport />} />
-              <Route path="/employees" element={<Employees />} />
-              <Route path="/generator" element={<IDCardGenerator />} />
-              <Route path="/print" element={<PrintPreview />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </AppLayout>
+          <Routes>
+            {/* Standalone clean mobile verification page for Google Lens scanner */}
+            <Route path="/verify" element={<VerifyCard />} />
+
+            {/* Admin Backoffice Application Routes */}
+            <Route
+              path="/"
+              element={
+                <AppLayout>
+                  <Dashboard />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/import"
+              element={
+                <AppLayout>
+                  <ExcelImport />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/employees"
+              element={
+                <AppLayout>
+                  <Employees />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/generator"
+              element={
+                <AppLayout>
+                  <IDCardGenerator />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/print"
+              element={
+                <AppLayout>
+                  <PrintPreview />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <AppLayout>
+                  <Settings />
+                </AppLayout>
+              }
+            />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </ToastProvider>
       </AppProvider>
     </BrowserRouter>
