@@ -50,9 +50,15 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     setExportMsg('Downloading front image...');
     try {
       await downloadCardImage(frontRef.current, `${employee.id}_Front.png`);
+      setExportMsg('Front card downloaded!');
+      setTimeout(() => setExportMsg(''), 2500);
+    } catch (err: unknown) {
+      console.error('Download error:', err);
+      const msg = err instanceof Error ? err.message : 'Download failed';
+      setExportMsg(`Error: ${msg}`);
+      setTimeout(() => setExportMsg(''), 4000);
     } finally {
       setIsExporting(false);
-      setExportMsg('');
     }
   };
 
@@ -62,9 +68,15 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     setExportMsg('Downloading back image...');
     try {
       await downloadCardImage(backRef.current, `${employee.id}_Back.png`);
+      setExportMsg('Back card downloaded!');
+      setTimeout(() => setExportMsg(''), 2500);
+    } catch (err: unknown) {
+      console.error('Download error:', err);
+      const msg = err instanceof Error ? err.message : 'Download failed';
+      setExportMsg(`Error: ${msg}`);
+      setTimeout(() => setExportMsg(''), 4000);
     } finally {
       setIsExporting(false);
-      setExportMsg('');
     }
   };
 
@@ -74,9 +86,15 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     setExportMsg('Generating CR80 PDF...');
     try {
       await downloadSingleCardPDF(frontRef.current, backRef.current, `${employee.id}_ID_Card.pdf`);
+      setExportMsg('PDF card downloaded!');
+      setTimeout(() => setExportMsg(''), 2500);
+    } catch (err: unknown) {
+      console.error('PDF error:', err);
+      const msg = err instanceof Error ? err.message : 'PDF export failed';
+      setExportMsg(`Error: ${msg}`);
+      setTimeout(() => setExportMsg(''), 4000);
     } finally {
       setIsExporting(false);
-      setExportMsg('');
     }
   };
 
@@ -86,9 +104,14 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
     setExportMsg('Preparing print dialog...');
     try {
       await printSingleCard(frontRef.current, backRef.current);
+      setExportMsg('');
+    } catch (err: unknown) {
+      console.error('Print error:', err);
+      const msg = err instanceof Error ? err.message : 'Print failed';
+      setExportMsg(`Error: ${msg}`);
+      setTimeout(() => setExportMsg(''), 4000);
     } finally {
       setIsExporting(false);
-      setExportMsg('');
     }
   };
 
@@ -164,12 +187,22 @@ export const CardPreview: React.FC<CardPreviewProps> = ({
         </div>
       </div>
 
-      {/* Hidden flat elements for high-DPI capture without 3D rotation issues */}
-      <div className="sr-only" aria-hidden="true">
-        <div ref={frontRef}>
+      {/* Offscreen flat render container for high-DPI capture without 3D perspective issues */}
+      <div
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: 0,
+          pointerEvents: 'none',
+          zIndex: -9999,
+          opacity: 1
+        }}
+        aria-hidden="true"
+      >
+        <div ref={frontRef} style={{ width: '85.6mm', height: '53.98mm' }}>
           <IDCardFront employee={employee} company={company} />
         </div>
-        <div ref={backRef}>
+        <div ref={backRef} style={{ width: '85.6mm', height: '53.98mm' }}>
           <IDCardBack employee={employee} company={company} />
         </div>
       </div>

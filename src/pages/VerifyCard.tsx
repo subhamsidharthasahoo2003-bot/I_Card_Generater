@@ -44,14 +44,14 @@ export const VerifyCard: React.FC = () => {
     name: decoded.name || 'Employee',
     designation: decoded.designation || 'Staff',
     department: decoded.department || 'Operations',
-    phone: decoded.phone,
-    email: decoded.email,
+    phone: decoded.phone || '',
+    email: decoded.email || '',
     dob: decoded.dob,
     bloodGroup: decoded.bloodGroup,
     joiningDate: decoded.issueDate || new Date().toISOString().slice(0, 10),
     issueDate: decoded.issueDate || new Date().toISOString().slice(0, 10),
     validUntil: decoded.validUntil || new Date().toISOString().slice(0, 10),
-    photoFileName: `${decoded.id}.jpg`,
+    photoFileName: `${decoded.id || 'TEMP'}.jpg`,
     status: 'Ready'
   } : null);
 
@@ -72,9 +72,15 @@ export const VerifyCard: React.FC = () => {
     setExportMessage('Generating front card image...');
     try {
       await downloadCardImage(frontRef.current, `${employee.id}_Front_Card.png`);
+      setExportMessage('Front card downloaded successfully!');
+      setTimeout(() => setExportMessage(''), 2500);
+    } catch (err: unknown) {
+      console.error('Front download error:', err);
+      const msg = err instanceof Error ? err.message : 'Download failed';
+      setExportMessage(`Error: ${msg}`);
+      setTimeout(() => setExportMessage(''), 4000);
     } finally {
       setIsExporting(false);
-      setExportMessage('');
     }
   };
 
@@ -84,9 +90,15 @@ export const VerifyCard: React.FC = () => {
     setExportMessage('Generating back card image...');
     try {
       await downloadCardImage(backRef.current, `${employee.id}_Back_Card.png`);
+      setExportMessage('Back card downloaded successfully!');
+      setTimeout(() => setExportMessage(''), 2500);
+    } catch (err: unknown) {
+      console.error('Back download error:', err);
+      const msg = err instanceof Error ? err.message : 'Download failed';
+      setExportMessage(`Error: ${msg}`);
+      setTimeout(() => setExportMessage(''), 4000);
     } finally {
       setIsExporting(false);
-      setExportMessage('');
     }
   };
 
@@ -96,9 +108,15 @@ export const VerifyCard: React.FC = () => {
     setExportMessage('Generating printable PDF card...');
     try {
       await downloadSingleCardPDF(frontRef.current, backRef.current, `${employee.id}_ID_Card.pdf`);
+      setExportMessage('PDF card downloaded successfully!');
+      setTimeout(() => setExportMessage(''), 2500);
+    } catch (err: unknown) {
+      console.error('PDF error:', err);
+      const msg = err instanceof Error ? err.message : 'PDF export failed';
+      setExportMessage(`Error: ${msg}`);
+      setTimeout(() => setExportMessage(''), 4000);
     } finally {
       setIsExporting(false);
-      setExportMessage('');
     }
   };
 
@@ -108,9 +126,14 @@ export const VerifyCard: React.FC = () => {
     setExportMessage('Preparing print dialog...');
     try {
       await printSingleCard(frontRef.current, backRef.current);
+      setExportMessage('');
+    } catch (err: unknown) {
+      console.error('Print error:', err);
+      const msg = err instanceof Error ? err.message : 'Print failed';
+      setExportMessage(`Error: ${msg}`);
+      setTimeout(() => setExportMessage(''), 4000);
     } finally {
       setIsExporting(false);
-      setExportMessage('');
     }
   };
 
@@ -245,29 +268,31 @@ export const VerifyCard: React.FC = () => {
           <div className="flex justify-center py-2 overflow-x-auto">
             <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-inner flex items-center justify-center">
               {activeSide === 'front' ? (
-                <div ref={frontRef}>
-                  <IDCardFront employee={employee} company={companySettings} className="shadow-md" />
-                </div>
+                <IDCardFront employee={employee} company={companySettings} className="shadow-md" />
               ) : (
-                <div ref={backRef}>
-                  <IDCardBack employee={employee} company={companySettings} className="shadow-md" />
-                </div>
+                <IDCardBack employee={employee} company={companySettings} className="shadow-md" />
               )}
             </div>
           </div>
 
-          {/* Hidden containers to ensure both sides are rendered and capturable at any time */}
-          <div className="sr-only" aria-hidden="true">
-            {activeSide === 'back' && (
-              <div ref={frontRef}>
-                <IDCardFront employee={employee} company={companySettings} />
-              </div>
-            )}
-            {activeSide === 'front' && (
-              <div ref={backRef}>
-                <IDCardBack employee={employee} company={companySettings} />
-              </div>
-            )}
+          {/* Offscreen fixed containers for export capture */}
+          <div
+            style={{
+              position: 'fixed',
+              left: '-9999px',
+              top: 0,
+              pointerEvents: 'none',
+              zIndex: -9999,
+              opacity: 1
+            }}
+            aria-hidden="true"
+          >
+            <div ref={frontRef} style={{ width: '85.6mm', height: '53.98mm' }}>
+              <IDCardFront employee={employee} company={companySettings} />
+            </div>
+            <div ref={backRef} style={{ width: '85.6mm', height: '53.98mm' }}>
+              <IDCardBack employee={employee} company={companySettings} />
+            </div>
           </div>
 
           {/* Download Action Buttons */}

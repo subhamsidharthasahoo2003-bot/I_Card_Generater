@@ -5,14 +5,30 @@ import jsPDF from 'jspdf';
  * Captures an HTML card element and triggers a crisp PNG download
  */
 export async function downloadCardImage(element: HTMLElement, filename: string): Promise<void> {
+  if (!element) {
+    throw new Error('Card element not found for export.');
+  }
+
+  // Ensure element has valid bounding dimensions
+  const rect = element.getBoundingClientRect();
+  const width = Math.max(rect.width, element.offsetWidth, 323);
+  const height = Math.max(rect.height, element.offsetHeight, 204);
+
   const canvas = await html2canvas(element, {
     scale: 3, // 300 DPI high resolution
     useCORS: true,
+    allowTaint: false,
     logging: false,
+    width,
+    height,
     backgroundColor: '#ffffff'
   });
 
   const dataUrl = canvas.toDataURL('image/png', 1.0);
+  if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 50) {
+    throw new Error('Failed to generate image data from card.');
+  }
+
   const link = document.createElement('a');
   link.href = dataUrl;
   link.download = filename.endsWith('.png') ? filename : `${filename}.png`;
@@ -31,6 +47,10 @@ export async function downloadSingleCardPDF(
   backEl?: HTMLElement | null,
   filename: string = 'Employee_ID_Card.pdf'
 ): Promise<void> {
+  if (!frontEl) {
+    throw new Error('Front card element not found.');
+  }
+
   const cardWidthMm = 85.6;
   const cardHeightMm = 53.98;
 
@@ -41,11 +61,18 @@ export async function downloadSingleCardPDF(
     format: [cardWidthMm, cardHeightMm]
   });
 
+  const frontRect = frontEl.getBoundingClientRect();
+  const frontWidth = Math.max(frontRect.width, frontEl.offsetWidth, 323);
+  const frontHeight = Math.max(frontRect.height, frontEl.offsetHeight, 204);
+
   // 1. Capture and add Front Face
   const frontCanvas = await html2canvas(frontEl, {
     scale: 3,
     useCORS: true,
+    allowTaint: false,
     logging: false,
+    width: frontWidth,
+    height: frontHeight,
     backgroundColor: '#ffffff'
   });
   const frontImg = frontCanvas.toDataURL('image/jpeg', 0.98);
@@ -53,10 +80,17 @@ export async function downloadSingleCardPDF(
 
   // 2. Capture and add Back Face if available
   if (backEl) {
+    const backRect = backEl.getBoundingClientRect();
+    const backWidth = Math.max(backRect.width, backEl.offsetWidth, 323);
+    const backHeight = Math.max(backRect.height, backEl.offsetHeight, 204);
+
     const backCanvas = await html2canvas(backEl, {
       scale: 3,
       useCORS: true,
+      allowTaint: false,
       logging: false,
+      width: backWidth,
+      height: backHeight,
       backgroundColor: '#ffffff'
     });
     const backImg = backCanvas.toDataURL('image/jpeg', 0.98);
@@ -72,21 +106,39 @@ export async function downloadSingleCardPDF(
  * Prints a single employee's ID card cleanly in an isolated printable window/iframe
  */
 export async function printSingleCard(frontEl: HTMLElement, backEl?: HTMLElement | null): Promise<void> {
+  if (!frontEl) {
+    throw new Error('Front card element not found.');
+  }
+
+  const frontRect = frontEl.getBoundingClientRect();
+  const frontWidth = Math.max(frontRect.width, frontEl.offsetWidth, 323);
+  const frontHeight = Math.max(frontRect.height, frontEl.offsetHeight, 204);
+
   // Render high-res images of both sides
   const frontCanvas = await html2canvas(frontEl, {
     scale: 3,
     useCORS: true,
+    allowTaint: false,
     logging: false,
+    width: frontWidth,
+    height: frontHeight,
     backgroundColor: '#ffffff'
   });
   const frontImg = frontCanvas.toDataURL('image/png', 1.0);
 
   let backImg = '';
   if (backEl) {
+    const backRect = backEl.getBoundingClientRect();
+    const backWidth = Math.max(backRect.width, backEl.offsetWidth, 323);
+    const backHeight = Math.max(backRect.height, backEl.offsetHeight, 204);
+
     const backCanvas = await html2canvas(backEl, {
       scale: 3,
       useCORS: true,
+      allowTaint: false,
       logging: false,
+      width: backWidth,
+      height: backHeight,
       backgroundColor: '#ffffff'
     });
     backImg = backCanvas.toDataURL('image/png', 1.0);
