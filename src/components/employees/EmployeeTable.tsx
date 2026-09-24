@@ -211,6 +211,7 @@ export const EmployeeTable: React.FC<EmployeeTableProps> = ({
                         <img
                           src={emp.photoUrl}
                           alt={emp.name}
+                          referrerPolicy="no-referrer"
                           className="w-full h-full object-cover object-top"
                         />
                       ) : (

@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { Employee, ExcelImportResult, ExcelValidationError } from '../types/employee';
 import { validateEmployeeRow, findRowValue } from '../utils/validation';
-import { getTodayDateString, calculateValidUntil } from '../utils/dateUtils';
+import { getTodayDateString, calculateValidUntil, formatDisplayDate } from '../utils/dateUtils';
 import { SAMPLE_EMPLOYEES_DATA } from '../data/sampleEmployees';
 import { isRemotePhotoUrl, formatGoogleDriveImageUrl } from './photoService';
 
@@ -24,7 +24,7 @@ export async function parseExcelFile(file: File): Promise<ExcelImportResult> {
   for (const sheetName of workbook.SheetNames) {
     const ws = workbook.Sheets[sheetName];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rows: Record<string, any>[] = XLSX.utils.sheet_to_json(ws, { defval: '' });
+    const rows: Record<string, any>[] = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
     if (rows.length > rawRows.length) {
       rawRows = rows;
       worksheet = ws;
@@ -76,13 +76,15 @@ export async function parseExcelFile(file: File): Promise<ExcelImportResult> {
     const isDriveOrWebPhoto = isRemotePhotoUrl(photoVal);
     const resolvedPhotoUrl = isDriveOrWebPhoto ? formatGoogleDriveImageUrl(photoVal) : undefined;
 
-    const dobVal = findRowValue(row, ['DOB', 'Date of Birth', 'Birth Date', 'BirthDate', 'D.O.B']);
+    const rawDob = findRowValue(row, ['DOB', 'Date of Birth', 'Birth Date', 'BirthDate', 'D.O.B']);
+    const dobVal = rawDob ? formatDisplayDate(rawDob) : undefined;
     const emailVal = findRowValue(row, ['Email', 'Email ID', 'Email-ID', 'EmailId', 'Email Address', 'E-mail', 'Mail', 'Gmail']);
     const phoneVal = findRowValue(row, ['Phone', 'Mobile', 'Contact', 'Phone Number', 'Mobile Number']);
     const nameVal = findRowValue(row, ['Name', 'Employee Name', 'Emp Name', 'Full Name']);
     const designationVal = findRowValue(row, ['Designation', 'Role', 'Position', 'Job Title']);
     const departmentVal = findRowValue(row, ['Department', 'Dept']);
-    const joiningDateVal = findRowValue(row, ['Joining Date', 'JoiningDate', 'Date of Joining']);
+    const rawJoiningDate = findRowValue(row, ['Joining Date', 'JoiningDate', 'Date of Joining']);
+    const joiningDateVal = rawJoiningDate ? formatDisplayDate(rawJoiningDate) : today;
     const bloodGroupVal = findRowValue(row, ['Blood Group', 'BloodGroup', 'Blood', 'BG']);
     const addressVal = findRowValue(row, ['Address', 'Location', 'City']);
 

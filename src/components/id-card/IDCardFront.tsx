@@ -58,7 +58,24 @@ export const IDCardFront: React.FC<IDCardFrontProps> = ({
               <img
                 src={employee.photoUrl}
                 alt={employee.name}
+                referrerPolicy="no-referrer"
                 className="w-full h-full object-cover object-top"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  target.style.display = 'none';
+                  const parent = target.parentElement;
+                  if (parent && !parent.querySelector('.img-fallback')) {
+                    const fallback = document.createElement('div');
+                    fallback.className = 'img-fallback flex flex-col items-center justify-center text-neutral-400 p-1 text-center w-full h-full';
+                    fallback.innerHTML = `
+                      <span class="text-[6.5px] font-bold text-neutral-500 uppercase tracking-tighter text-center leading-tight font-sans">
+                        ${employee.name.split(' ').slice(0, 2).map(n => n[0]).join('')}
+                      </span>
+                      <span class="text-[5.5px] font-semibold text-orange-600 mt-0.5 leading-none">Access Restricted</span>
+                    `;
+                    parent.appendChild(fallback);
+                  }
+                }}
               />
             ) : (
               <div className="flex flex-col items-center justify-center text-neutral-400 p-1 text-center">
