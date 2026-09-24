@@ -87,7 +87,20 @@ export function calculateValidUntil(
 }
 
 /**
- * Format any date format (YYYY-MM-DD, DD/MM/YYYY, Excel serial 38606, Date object) to DD-MM-YYYY
+ * Convert 2-digit year (e.g. "91", "04") to 4-digit year (e.g. "1991", "2004")
+ */
+export function expandTwoDigitYear(yyStr: string): string {
+  const yy = parseInt(yyStr, 10);
+  if (isNaN(yy)) return yyStr;
+  // Pivot around 50:
+  // 00..50 -> 2000..2050 (e.g. 04 -> 2004, 26 -> 2026)
+  // 51..99 -> 1951..1999 (e.g. 91 -> 1991, 75 -> 1975, 98 -> 1998)
+  const fullYear = yy <= 50 ? 2000 + yy : 1900 + yy;
+  return String(fullYear);
+}
+
+/**
+ * Format any date format (YYYY-MM-DD, DD/MM/YYYY, MM/DD/YY, M/D/YY, Excel serial 38606, Date object) to DD-MM-YYYY with full 4-digit year
  */
 export function formatDisplayDate(dateStr?: string | number | Date): string {
   if (!dateStr && dateStr !== 0) return 'N/A';
@@ -113,24 +126,68 @@ export function formatDisplayDate(dateStr?: string | number | Date): string {
   // Handle ISO strings with T (e.g. 2026-09-24T00:00:00.000Z)
   const cleanStr = str.includes('T') ? str.split('T')[0] : str;
 
-  // Standardize slashes to hyphens
-  const normalizedStr = cleanStr.replace(/\//g, '-');
+  // Split by common date delimiters: hyphen, slash, dot
+  const parts = cleanStr.split(/[-/.]/);
 
-  if (normalizedStr.includes('-')) {
-    const parts = normalizedStr.split('-');
-    if (parts.length === 3) {
-      if (parts[0].length === 4) {
-        // YYYY-MM-DD -> DD-MM-YYYY
-        const day = parts[2].padStart(2, '0');
-        const month = parts[1].padStart(2, '0');
-        return `${day}-${month}-${parts[0]}`;
-      } else if (parts[2].length === 4) {
-        // DD-MM-YYYY
-        const day = parts[0].padStart(2, '0');
-        const month = parts[1].padStart(2, '0');
-        return `${day}-${month}-${parts[2]}`;
+  if (parts.length === 3) {
+    const p0 = parts[0].trim();
+    const p1 = parts[1].trim();
+    const p2 = parts[2].trim();
+
+    const n0 = parseInt(p0, 10);
+    const n1 = parseInt(p1, 10);
+    const n2 = parseInt(p2, 10);
+
+    if (!isNaN(n0) && !isNaN(n1) && !isNaN(n2)) {
+      let day = '';
+      let month = '';
+      let year = '';
+
+      if (p0.length === 4) {
+        // YYYY-MM-DD or YYYY/MM/DD
+        year = p0;
+        month = String(n1).padStart(2, '0');
+        day = String(n2).padStart(2, '0');
+      } else {
+        // Year is at the end (parts[2])
+        if (p2.length === 4) {
+          year = p2;
+        } else if (p2.length <= 2) {
+          year = expandTwoDigitYear(p2);
+        } else {
+          year = p2;
+        }
+
+        // Determine which of p0 and p1 is day and which is month
+        if (n1 > 12 && n0 <= 12) {
+          // MM/DD/YYYY or M/D/YY (e.g., 2/14/91 -> Feb 14 1991, 12/17/04 -> Dec 17 2004)
+          month = String(n0).padStart(2, '0');
+          day = String(n1).padStart(2, '0');
+        } else if (n0 > 12 && n1 <= 12) {
+          // DD/MM/YYYY or D/M/YY (e.g., 14/02/91, 24-10-2026)
+          day = String(n0).padStart(2, '0');
+          month = String(n1).padStart(2, '0');
+        } else {
+          // Both <= 12 (e.g., 05/06/1998, 05-06-2001)
+          // Default to DD-MM-YYYY (standard Indian / UK format)
+          day = String(n0).padStart(2, '0');
+          month = String(n1).padStart(2, '0');
+        }
+      }
+
+      if (day && month && year) {
+        return `${day}-${month}-${year}`;
       }
     }
+  }
+
+  // Fallback: try JS Date parser
+  const parsed = new Date(cleanStr);
+  if (!isNaN(parsed.getTime())) {
+    const day = String(parsed.getDate()).padStart(2, '0');
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const year = parsed.getFullYear();
+    return `${day}-${month}-${year}`;
   }
 
   return str;
