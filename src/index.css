@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    border-color: var(--color-slate-200);
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
+/* Custom CR80 ID Card dimensions */
+.cr80-card {
+  width: 85.6mm;
+  height: 53.98mm;
+  min-width: 85.6mm;
+  min-height: 53.98mm;
+  max-width: 85.6mm;
+  max-height: 53.98mm;
+  box-sizing: border-box;
+}
+
+/* Screen Preview Scaled Card */
+.cr80-preview-container {
+  perspective: 1200px;
+}
+
+.cr80-card-screen {
+  width: 324px;
+  height: 204px;
+  aspect-ratio: 85.6 / 53.98;
+}
+
+/* 3D Flip Animation */
+.card-flipper {
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+  transform-style: preserve-3d;
+}
+
+.card-flipper.flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.card-back-face {
+  transform: rotateY(180deg);
+}
+
+/* A4 Print Sheet Simulation */
+.a4-sheet {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 10mm;
+  margin: 0 auto;
+  background: white;
+  box-sizing: border-box;
+}
+
+/* Print CSS */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  html, body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 210mm;
+  }
+
+  /* Completely hide all non-printable UI elements */
+  .no-print,
+  aside,
+  header,
+  nav,
+  button,
+  .print-controls,
+  .sidebar,
+  .toast-container {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .a4-sheet {
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    min-height: auto !important;
+  }
+
+  .page-break-after {
+    page-break-after: always !important;
+    break-after: page !important;
+  }
+
+  .cr80-card {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
