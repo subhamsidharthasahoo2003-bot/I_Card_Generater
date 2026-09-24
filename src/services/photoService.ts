@@ -90,8 +90,9 @@ export function formatGoogleDriveImageUrl(url: string): string {
   if (!url) return '';
   const fileId = extractGoogleDriveFileId(url);
   if (fileId) {
-    // High-resolution direct thumbnail stream from Google Drive CDN
-    return `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+    // High-resolution direct thumbnail stream with CORS enabled for canvas exports
+    const directUrl = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+    return `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}`;
   }
   return url.trim();
 }

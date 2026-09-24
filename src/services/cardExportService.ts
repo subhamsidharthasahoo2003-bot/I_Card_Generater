@@ -1,5 +1,5 @@
-import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import { renderElementToCanvas } from '../utils/canvasExportUtils';
 
 /**
  * Captures an HTML card element and triggers a crisp PNG download
@@ -9,21 +9,7 @@ export async function downloadCardImage(element: HTMLElement, filename: string):
     throw new Error('Card element not found for export.');
   }
 
-  // Ensure element has valid bounding dimensions
-  const rect = element.getBoundingClientRect();
-  const width = Math.max(rect.width, element.offsetWidth, 323);
-  const height = Math.max(rect.height, element.offsetHeight, 204);
-
-  const canvas = await html2canvas(element, {
-    scale: 3, // 300 DPI high resolution
-    useCORS: true,
-    allowTaint: false,
-    logging: false,
-    width,
-    height,
-    backgroundColor: '#ffffff'
-  });
-
+  const canvas = await renderElementToCanvas(element, 3);
   const dataUrl = canvas.toDataURL('image/png', 1.0);
   if (!dataUrl || dataUrl === 'data:,' || dataUrl.length < 50) {
     throw new Error('Failed to generate image data from card.');
@@ -61,38 +47,14 @@ export async function downloadSingleCardPDF(
     format: [cardWidthMm, cardHeightMm]
   });
 
-  const frontRect = frontEl.getBoundingClientRect();
-  const frontWidth = Math.max(frontRect.width, frontEl.offsetWidth, 323);
-  const frontHeight = Math.max(frontRect.height, frontEl.offsetHeight, 204);
-
   // 1. Capture and add Front Face
-  const frontCanvas = await html2canvas(frontEl, {
-    scale: 3,
-    useCORS: true,
-    allowTaint: false,
-    logging: false,
-    width: frontWidth,
-    height: frontHeight,
-    backgroundColor: '#ffffff'
-  });
+  const frontCanvas = await renderElementToCanvas(frontEl, 3);
   const frontImg = frontCanvas.toDataURL('image/jpeg', 0.98);
   pdf.addImage(frontImg, 'JPEG', 0, 0, cardWidthMm, cardHeightMm, undefined, 'FAST');
 
   // 2. Capture and add Back Face if available
   if (backEl) {
-    const backRect = backEl.getBoundingClientRect();
-    const backWidth = Math.max(backRect.width, backEl.offsetWidth, 323);
-    const backHeight = Math.max(backRect.height, backEl.offsetHeight, 204);
-
-    const backCanvas = await html2canvas(backEl, {
-      scale: 3,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      width: backWidth,
-      height: backHeight,
-      backgroundColor: '#ffffff'
-    });
+    const backCanvas = await renderElementToCanvas(backEl, 3);
     const backImg = backCanvas.toDataURL('image/jpeg', 0.98);
     pdf.addPage([cardWidthMm, cardHeightMm], 'landscape');
     pdf.addImage(backImg, 'JPEG', 0, 0, cardWidthMm, cardHeightMm, undefined, 'FAST');
@@ -110,37 +72,13 @@ export async function printSingleCard(frontEl: HTMLElement, backEl?: HTMLElement
     throw new Error('Front card element not found.');
   }
 
-  const frontRect = frontEl.getBoundingClientRect();
-  const frontWidth = Math.max(frontRect.width, frontEl.offsetWidth, 323);
-  const frontHeight = Math.max(frontRect.height, frontEl.offsetHeight, 204);
-
   // Render high-res images of both sides
-  const frontCanvas = await html2canvas(frontEl, {
-    scale: 3,
-    useCORS: true,
-    allowTaint: false,
-    logging: false,
-    width: frontWidth,
-    height: frontHeight,
-    backgroundColor: '#ffffff'
-  });
+  const frontCanvas = await renderElementToCanvas(frontEl, 3);
   const frontImg = frontCanvas.toDataURL('image/png', 1.0);
 
   let backImg = '';
   if (backEl) {
-    const backRect = backEl.getBoundingClientRect();
-    const backWidth = Math.max(backRect.width, backEl.offsetWidth, 323);
-    const backHeight = Math.max(backRect.height, backEl.offsetHeight, 204);
-
-    const backCanvas = await html2canvas(backEl, {
-      scale: 3,
-      useCORS: true,
-      allowTaint: false,
-      logging: false,
-      width: backWidth,
-      height: backHeight,
-      backgroundColor: '#ffffff'
-    });
+    const backCanvas = await renderElementToCanvas(backEl, 3);
     backImg = backCanvas.toDataURL('image/png', 1.0);
   }
 

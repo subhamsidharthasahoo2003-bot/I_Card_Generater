@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import { renderElementToCanvas } from '../utils/canvasExportUtils';
 
 export interface PDFExportProgress {
   current: number;
@@ -60,13 +60,8 @@ export async function generateA4PDF(
     const posX = leftMarginMm + colIndex * (cardWidthMm + colGapMm);
     const posY = topMarginMm + rowIndex * (cardHeightMm + rowGapMm);
 
-    // Capture card DOM element with high DPI
-    const canvas = await html2canvas(cardEl, {
-      scale: 3, // crisp high-res
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff'
-    });
+    // Capture card DOM element with high DPI and sanitized oklch colors
+    const canvas = await renderElementToCanvas(cardEl, 3);
 
     const imgData = canvas.toDataURL('image/jpeg', 0.95);
 

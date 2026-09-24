@@ -2,7 +2,7 @@
 
 @layer base {
   * {
-    border-color: var(--color-slate-200);
+    border-color: #e2e8f0;
   }
 
   body {
