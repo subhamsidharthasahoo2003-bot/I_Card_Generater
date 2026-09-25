@@ -83,10 +83,6 @@ export function isRemotePhotoUrl(str: string): boolean {
   );
 }
 
-/**
- * Converts a Google Drive link to a direct high-resolution image URL.
- * Uses lh3.googleusercontent.com/d/ which is Google's direct public CDN format.
- */
 export function formatGoogleDriveImageUrl(url: string): string {
   if (!url) return '';
   const fileId = extractGoogleDriveFileId(url);
@@ -94,6 +90,56 @@ export function formatGoogleDriveImageUrl(url: string): string {
     return `https://lh3.googleusercontent.com/d/${fileId}`;
   }
   return url.trim();
+}
+
+export function handleCardImageError(
+  target: HTMLImageElement,
+  fallbackInitials: string,
+  variant: 'card' | 'table' | 'avatar' = 'card'
+): void {
+  const retryCount = parseInt(target.getAttribute('data-retry') || '0', 10);
+  const currentSrc = target.src;
+  const driveMatch = currentSrc.match(/(?:\/d\/|id=)([a-zA-Z0-9_-]+)/);
+  const fileId = driveMatch ? driveMatch[1] : null;
+
+  // Max 2 retries allowed
+  if (retryCount >= 2 || !fileId) {
+    target.style.display = 'none';
+    const parent = target.parentElement;
+    if (parent && !parent.querySelector('.emp-photo-fallback')) {
+      const fb = document.createElement('div');
+      fb.className = 'emp-photo-fallback flex flex-col items-center justify-center text-center w-full h-full';
+      if (variant === 'card') {
+        fb.innerHTML = `
+          <span class="text-[6.5px] font-bold text-neutral-500 uppercase tracking-tighter text-center leading-tight font-sans">
+            ${fallbackInitials.slice(0, 2)}
+          </span>
+          <span class="text-[5.5px] font-semibold text-orange-600 mt-0.5 leading-none">Photo Unavailable</span>
+        `;
+      } else {
+        fb.innerHTML = `
+          <span class="text-[10px] font-bold text-slate-500 uppercase">
+            ${fallbackInitials.slice(0, 2)}
+          </span>
+        `;
+      }
+      parent.appendChild(fb);
+    }
+    return;
+  }
+
+  // First retry: alternate Google Drive endpoint
+  target.setAttribute('data-retry', String(retryCount + 1));
+  if (retryCount === 0) {
+    if (currentSrc.includes('lh3.googleusercontent.com')) {
+      target.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`;
+    } else {
+      target.src = `https://lh3.googleusercontent.com/d/${fileId}`;
+    }
+  } else if (retryCount === 1) {
+    // Second retry: wsrv.nl image proxy
+    target.src = `https://wsrv.nl/?url=${encodeURIComponent(`https://lh3.googleusercontent.com/d/${fileId}`)}`;
+  }
 }
 
 /**
@@ -104,23 +150,28 @@ export async function convertImageSrcToBase64(url: string): Promise<string> {
   if (!url) return '';
   if (url.startsWith('data:')) return url;
 
-  let directUrl = url;
-  if (url.includes('drive.google.com') || url.includes('googleusercontent.com')) {
-    directUrl = formatGoogleDriveImageUrl(url);
-  }
+  let directUrl = url.trim();
+  const fileId = extractGoogleDriveFileId(directUrl);
 
-  // Candidates to try: CORS proxy with raw output, direct URL, etc.
-  const candidates = [
-    `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&output=png`,
-    directUrl,
-    url
-  ];
+  // For Google Drive images, ONLY use CORS-enabled proxies.
+  // Never request Google Drive CDN directly with crossOrigin='anonymous' because Google does not send CORS headers.
+  const candidates: string[] = [];
+  if (fileId) {
+    candidates.push(`https://wsrv.nl/?url=${encodeURIComponent(`https://lh3.googleusercontent.com/d/${fileId}`)}&output=png`);
+    candidates.push(`https://images.weserv.nl/?url=${encodeURIComponent(`https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`)}&output=png`);
+  } else if (directUrl.startsWith('http://') || directUrl.startsWith('https://')) {
+    candidates.push(`https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&output=png`);
+    candidates.push(directUrl);
+  }
 
   for (const candidate of candidates) {
     try {
       const dataUrl = await new Promise<string>((resolve, reject) => {
         const img = new window.Image();
-        img.crossOrigin = 'anonymous';
+        // Only set crossOrigin if not on raw Google Drive domain
+        if (!candidate.includes('drive.google.com') && !candidate.includes('googleusercontent.com')) {
+          img.crossOrigin = 'anonymous';
+        }
         img.onload = () => {
           try {
             const canvas = document.createElement('canvas');
@@ -138,7 +189,7 @@ export async function convertImageSrcToBase64(url: string): Promise<string> {
             reject(err);
           }
         };
-        img.onerror = reject;
+        img.onerror = () => reject(new Error('Image failed to load'));
         img.src = candidate;
         setTimeout(() => reject(new Error('Image fetch timeout')), 3500);
       });

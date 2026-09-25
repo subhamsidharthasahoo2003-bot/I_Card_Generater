@@ -3,6 +3,7 @@ import { Employee } from '../../types/employee';
 import { CompanySettings } from '../../types/company';
 import { formatDisplayDate } from '../../utils/dateUtils';
 import { Building2, UserX, Phone, Calendar, Mail } from 'lucide-react';
+import { handleCardImageError } from '../../services/photoService';
 
 interface IDCardFrontProps {
   employee: Employee;
@@ -78,37 +79,9 @@ export const IDCardFront: React.FC<IDCardFrontProps> = ({
                 src={employee.photoUrl}
                 alt={employee.name}
                 referrerPolicy="no-referrer"
-                crossOrigin="anonymous"
                 className="w-full h-full object-cover object-top"
                 onError={(e) => {
-                  const target = e.currentTarget;
-                  const currentSrc = target.src;
-                  if (currentSrc.includes('lh3.googleusercontent.com/d/')) {
-                    const match = currentSrc.match(/\/d\/([a-zA-Z0-9_-]+)/);
-                    if (match && match[1]) {
-                      target.src = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
-                      return;
-                    }
-                  } else if (currentSrc.includes('drive.google.com/thumbnail')) {
-                    const match = currentSrc.match(/id=([a-zA-Z0-9_-]+)/);
-                    if (match && match[1]) {
-                      target.src = `https://lh3.googleusercontent.com/d/${match[1]}`;
-                      return;
-                    }
-                  }
-                  target.style.display = 'none';
-                  const parent = target.parentElement;
-                  if (parent && !parent.querySelector('.img-fallback')) {
-                    const fallback = document.createElement('div');
-                    fallback.className = 'img-fallback flex flex-col items-center justify-center text-neutral-400 p-1 text-center w-full h-full';
-                    fallback.innerHTML = `
-                      <span class="text-[6.5px] font-bold text-neutral-500 uppercase tracking-tighter text-center leading-tight font-sans">
-                        ${employee.name.split(' ').slice(0, 2).map(n => n[0]).join('')}
-                      </span>
-                      <span class="text-[5.5px] font-semibold text-orange-600 mt-0.5 leading-none">Photo Unavailable</span>
-                    `;
-                    parent.appendChild(fallback);
-                  }
+                  handleCardImageError(e.currentTarget, employee.name, 'card');
                 }}
               />
             ) : (

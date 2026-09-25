@@ -7,6 +7,7 @@ import { IDCardFront } from '../components/id-card/IDCardFront';
 import { IDCardBack } from '../components/id-card/IDCardBack';
 import { formatDisplayDate } from '../utils/dateUtils';
 import { downloadCardImage, downloadSingleCardPDF, printSingleCard } from '../services/cardExportService';
+import { handleCardImageError } from '../services/photoService';
 import {
   ShieldCheck,
   AlertTriangle,
@@ -289,29 +290,7 @@ export const VerifyCard: React.FC = () => {
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover object-top"
                   onError={(e) => {
-                    const target = e.currentTarget;
-                    const src = target.src;
-                    if (src.includes('lh3.googleusercontent.com/d/')) {
-                      const match = src.match(/\/d\/([a-zA-Z0-9_-]+)/);
-                      if (match && match[1]) {
-                        target.src = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
-                        return;
-                      }
-                    } else if (src.includes('drive.google.com/thumbnail')) {
-                      const match = src.match(/id=([a-zA-Z0-9_-]+)/);
-                      if (match && match[1]) {
-                        target.src = `https://lh3.googleusercontent.com/d/${match[1]}`;
-                        return;
-                      }
-                    }
-                    target.style.display = 'none';
-                    const parent = target.parentElement;
-                    if (parent && !parent.querySelector('.emp-avatar-fb')) {
-                      const fb = document.createElement('div');
-                      fb.className = 'emp-avatar-fb text-sm font-black text-slate-500 uppercase';
-                      fb.textContent = employee.name.slice(0, 2);
-                      parent.appendChild(fb);
-                    }
+                    handleCardImageError(e.currentTarget, employee.name, 'avatar');
                   }}
                 />
               ) : (
