@@ -3,9 +3,12 @@ import { useApp } from '../context/AppContext';
 import { PrintControls } from '../components/print/PrintControls';
 import { A4PrintSheet } from '../components/print/A4PrintSheet';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import { DownloadOneByOneModal } from '../components/print/DownloadOneByOneModal';
+import { PrintOneByOneModal } from '../components/print/PrintOneByOneModal';
 import { useToast } from '../components/ui/Toast';
-import { PrintLayoutMode } from '../types/idCard';
+import { PrintLayoutMode, PrintDensity } from '../types/idCard';
 import { generateA4PDF } from '../services/pdfService';
+import { downloadSingleCardPDF, downloadCardImage } from '../services/cardExportService';
 import { useNavigate, Link } from 'react-router-dom';
 import { Printer, FileSpreadsheet, Eye, Info, CheckCircle2 } from 'lucide-react';
 
@@ -23,9 +26,21 @@ export const PrintPreview: React.FC = () => {
   const navigate = useNavigate();
 
   const [layoutMode, setLayoutMode] = useState<PrintLayoutMode>('both');
+  const [density, setDensity] = useState<PrintDensity>('grid');
   const [printScope, setPrintScope] = useState<'selected' | 'all'>('selected');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false);
+
+  // One by one modals & progress state
+  const [isDownloadOneByOneOpen, setIsDownloadOneByOneOpen] = useState(false);
+  const [isPrintOneByOneOpen, setIsPrintOneByOneOpen] = useState(false);
+  const [oneByOneStatus, setOneByOneStatus] = useState<
+    'idle' | 'downloading' | 'completed' | 'cancelled' | 'error'
+  >('idle');
+  const [oneByOneIndex, setOneByOneIndex] = useState(0);
+  const [oneByOneFormat, setOneByOneFormat] = useState<'pdf' | 'png'>('pdf');
+  const [oneByOneError, setOneByOneError] = useState('');
+  const cancelDownloadRef = useRef(false);
 
   const cardContainerRefs = useRef<(HTMLDivElement | null)[]>([]);
 
@@ -50,9 +65,8 @@ export const PrintPreview: React.FC = () => {
     }, 150);
   };
 
-  // PDF Generation via jsPDF
+  // PDF Generation via jsPDF (respects current density: grid or single)
   const handleDownloadPDF = async () => {
-    // Filter actual valid DOM elements
     const validCardEls = cardContainerRefs.current.filter(
       (el): el is HTMLDivElement => el !== null
     );
@@ -64,8 +78,19 @@ export const PrintPreview: React.FC = () => {
 
     setIsGeneratingPDF(true);
     try {
-      showToast('info', 'Generating PDF', 'Compiling high-resolution A4 printable PDF...');
-      await generateA4PDF(validCardEls);
+      showToast(
+        'info',
+        'Generating PDF',
+        density === 'single'
+          ? 'Compiling 1-card-per-page A4 PDF...'
+          : 'Compiling high-resolution A4 printable PDF...'
+      );
+      await generateA4PDF(validCardEls, {
+        density,
+        onProgress: (p) => {
+          // progress tracking
+        }
+      });
       recordPrintJob(activeEmployees.length);
       showToast('success', 'PDF Downloaded', 'Your printable A4 ID cards PDF is ready.');
     } catch (err: unknown) {
@@ -74,6 +99,89 @@ export const PrintPreview: React.FC = () => {
     } finally {
       setIsGeneratingPDF(false);
     }
+  };
+
+  // Sequential individual downloads one by one
+  const handleOpenDownloadOneByOne = () => {
+    if (activeEmployees.length === 0) {
+      showToast('error', 'No Selection', 'Please select at least one employee card to download.');
+      return;
+    }
+    setOneByOneStatus('idle');
+    setOneByOneIndex(0);
+    setOneByOneError('');
+    setIsDownloadOneByOneOpen(true);
+  };
+
+  const handleStartDownloadOneByOne = async () => {
+    cancelDownloadRef.current = false;
+    setOneByOneStatus('downloading');
+    setOneByOneIndex(0);
+
+    try {
+      for (let i = 0; i < activeEmployees.length; i++) {
+        if (cancelDownloadRef.current) {
+          setOneByOneStatus('cancelled');
+          return;
+        }
+
+        const emp = activeEmployees[i];
+        setOneByOneIndex(i);
+
+        let frontEl: HTMLElement | null = null;
+        let backEl: HTMLElement | null = null;
+
+        if (layoutMode === 'both') {
+          frontEl = cardContainerRefs.current[i * 2] || null;
+          backEl = cardContainerRefs.current[i * 2 + 1] || null;
+        } else if (layoutMode === 'front-only') {
+          frontEl = cardContainerRefs.current[i] || null;
+        } else if (layoutMode === 'back-only') {
+          backEl = cardContainerRefs.current[i] || null;
+        }
+
+        const safeName = emp.name.replace(/[^a-zA-Z0-9_-]/g, '_');
+
+        if (oneByOneFormat === 'pdf') {
+          if (frontEl) {
+            await downloadSingleCardPDF(frontEl, backEl, `${emp.id}_${safeName}_ID_Card.pdf`);
+          } else if (backEl) {
+            await downloadSingleCardPDF(backEl, null, `${emp.id}_${safeName}_Back.pdf`);
+          }
+        } else {
+          // PNG image download
+          if (frontEl) {
+            await downloadCardImage(frontEl, `${emp.id}_${safeName}_Front.png`);
+          }
+          if (backEl) {
+            await downloadCardImage(backEl, `${emp.id}_${safeName}_Back.png`);
+          }
+        }
+
+        recordPrintJob(1);
+
+        // Pause 500ms between downloads so browser doesn't block sequential file triggers
+        await new Promise(res => setTimeout(res, 500));
+      }
+
+      setOneByOneStatus('completed');
+      showToast(
+        'success',
+        'Download Complete',
+        `All ${activeEmployees.length} ID cards were downloaded one by one.`
+      );
+    } catch (err: unknown) {
+      console.error('Download one by one error:', err);
+      const msg = err instanceof Error ? err.message : 'Sequential download failed';
+      setOneByOneError(msg);
+      setOneByOneStatus('error');
+      showToast('error', 'Download Error', msg);
+    }
+  };
+
+  const handleCancelDownloadOneByOne = () => {
+    cancelDownloadRef.current = true;
+    setOneByOneStatus('cancelled');
   };
 
   const handleConfirmClear = () => {
@@ -148,9 +256,13 @@ export const PrintPreview: React.FC = () => {
       <PrintControls
         layoutMode={layoutMode}
         onChangeLayoutMode={setLayoutMode}
+        density={density}
+        onChangeDensity={setDensity}
         onPrintSelected={() => handleTriggerPrint('selected')}
         onPrintAll={() => handleTriggerPrint('all')}
+        onPrintOneByOne={() => setIsPrintOneByOneOpen(true)}
         onDownloadPDF={handleDownloadPDF}
+        onDownloadOneByOne={handleOpenDownloadOneByOne}
         onClearData={() => setIsConfirmClearOpen(true)}
         selectedCount={selectedIds.size}
         totalCount={employees.length}
@@ -165,6 +277,11 @@ export const PrintPreview: React.FC = () => {
             <strong>Printing Tip:</strong> In your browser print dialog, set{' '}
             <strong className="underline">Scale: 100%</strong> (or "Actual size") and enable{' '}
             <strong className="underline">"Background graphics"</strong> for accurate colors and physical dimensions.
+            {density === 'single' && (
+              <span className="ml-1 text-indigo-700 font-bold">
+                (Single Card mode active: 1 badge per page)
+              </span>
+            )}
           </span>
         </div>
       </div>
@@ -175,9 +292,36 @@ export const PrintPreview: React.FC = () => {
           employees={activeEmployees}
           company={companySettings}
           layoutMode={layoutMode}
+          density={density}
           cardContainerRefs={cardContainerRefs}
         />
       </div>
+
+      {/* Download One by One Modal */}
+      <DownloadOneByOneModal
+        isOpen={isDownloadOneByOneOpen}
+        onClose={() => setIsDownloadOneByOneOpen(false)}
+        currentIndex={oneByOneIndex}
+        totalCount={activeEmployees.length}
+        currentEmployee={activeEmployees[oneByOneIndex] || null}
+        status={oneByOneStatus}
+        format={oneByOneFormat}
+        onChangeFormat={setOneByOneFormat}
+        onStart={handleStartDownloadOneByOne}
+        onCancel={handleCancelDownloadOneByOne}
+        errorMsg={oneByOneError}
+      />
+
+      {/* Print One by One Modal */}
+      {isPrintOneByOneOpen && (
+        <PrintOneByOneModal
+          isOpen={isPrintOneByOneOpen}
+          onClose={() => setIsPrintOneByOneOpen(false)}
+          employees={activeEmployees}
+          company={companySettings}
+          onRecordPrint={count => recordPrintJob(count)}
+        />
+      )}
 
       {/* Clear Temporary Data Confirmation Modal */}
       <ConfirmDialog

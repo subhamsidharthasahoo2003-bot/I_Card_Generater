@@ -15,7 +15,18 @@ import {
   FileText,
   User,
   Smartphone,
-  ArrowLeft
+  ArrowLeft,
+  Phone,
+  Mail,
+  Calendar,
+  Building2,
+  MapPin,
+  Check,
+  Copy,
+  Clock,
+  HeartPulse,
+  Briefcase,
+  ExternalLink
 } from 'lucide-react';
 
 export const VerifyCard: React.FC = () => {
@@ -25,6 +36,7 @@ export const VerifyCard: React.FC = () => {
   const [activeSide, setActiveSide] = useState<'front' | 'back'>('front');
   const [isExporting, setIsExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const frontRef = useRef<HTMLDivElement>(null);
   const backRef = useRef<HTMLDivElement>(null);
@@ -48,12 +60,20 @@ export const VerifyCard: React.FC = () => {
     email: decoded.email || '',
     dob: decoded.dob,
     bloodGroup: decoded.bloodGroup,
-    joiningDate: decoded.issueDate || new Date().toISOString().slice(0, 10),
+    address: decoded.address,
+    joiningDate: decoded.joiningDate || decoded.issueDate || new Date().toISOString().slice(0, 10),
     issueDate: decoded.issueDate || new Date().toISOString().slice(0, 10),
     validUntil: decoded.validUntil || new Date().toISOString().slice(0, 10),
     photoFileName: `${decoded.id || 'TEMP'}.jpg`,
+    photoUrl: decoded.photoUrl,
     status: 'Ready'
   } : null);
+
+  const activeCompany = {
+    ...companySettings,
+    name: decoded?.company || companySettings.name,
+    address: decoded?.address || companySettings.address
+  };
 
   // Check validity / expiration
   const isExpired = (() => {
@@ -65,6 +85,31 @@ export const VerifyCard: React.FC = () => {
     }
     return false;
   })();
+
+  const handleCopyAllData = () => {
+    if (!employee) return;
+    const fullText = [
+      `--- EMPLOYEE CREDENTIAL VERIFICATION ---`,
+      `Employee ID: ${employee.id}`,
+      `Full Name: ${employee.name}`,
+      `Designation: ${employee.designation}`,
+      `Department: ${employee.department}`,
+      `Date of Birth: ${employee.dob ? formatDisplayDate(employee.dob) : 'N/A'}`,
+      `Blood Group: ${employee.bloodGroup || 'N/A'}`,
+      `Phone: ${employee.phone || 'N/A'}`,
+      `Email: ${employee.email || 'N/A'}`,
+      `Date of Joining: ${formatDisplayDate(employee.joiningDate)}`,
+      `Issue Date: ${formatDisplayDate(employee.issueDate)}`,
+      `Valid Until: ${formatDisplayDate(employee.validUntil)}`,
+      `Company: ${activeCompany.name}`,
+      `Status: ${isExpired ? 'EXPIRED' : 'ACTIVE / VERIFIED'}`
+    ].join('\n');
+
+    navigator.clipboard.writeText(fullText).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2500);
+    });
+  };
 
   const handleDownloadFront = async () => {
     if (!frontRef.current || !employee) return;
@@ -162,26 +207,30 @@ export const VerifyCard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-100 to-slate-200 py-6 px-4 sm:px-6">
-      <div className="max-w-xl mx-auto space-y-5">
+    <div className="min-h-screen bg-gradient-to-b from-slate-100 via-slate-50 to-slate-200 py-6 px-4 sm:px-6">
+      <div className="max-w-2xl mx-auto space-y-4">
         
-        {/* Top Bar / Brand */}
+        {/* Top Header: Company Identity & Navigation */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-orange-600 text-white flex items-center justify-center font-black text-sm shadow-xs">
-              T
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-orange-600 text-white flex items-center justify-center font-black text-sm shadow-xs">
+              <Building2 className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xs font-black tracking-tight text-slate-900 uppercase">
-                {companySettings.name}
+              <h1 className="text-sm font-black tracking-tight text-slate-900 uppercase">
+                {activeCompany.name}
               </h1>
-              <span className="text-[10px] text-slate-500 font-mono">Digital Credential Verification</span>
+              <span className="text-[10px] text-slate-500 font-mono flex items-center gap-1">
+                <span>Google Lens Verified Scanner</span>
+                <span>•</span>
+                <span className="text-emerald-600 font-semibold">Live System</span>
+              </span>
             </div>
           </div>
 
           <Link
             to="/"
-            className="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white/80 border border-slate-200 px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-colors"
+            className="text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white/90 border border-slate-200 px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-2xs transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Dashboard</span>
@@ -193,16 +242,16 @@ export const VerifyCard: React.FC = () => {
           className={`p-4 rounded-2xl border flex items-center justify-between shadow-xs ${
             isExpired
               ? 'bg-rose-50 border-rose-200 text-rose-800'
-              : 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-900'
           }`}
         >
           <div className="flex items-center gap-3">
             <div
-              className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-xs ${
+              className={`w-11 h-11 rounded-xl flex items-center justify-center text-white shrink-0 shadow-xs ${
                 isExpired ? 'bg-rose-600' : 'bg-emerald-600'
               }`}
             >
-              {isExpired ? <AlertTriangle className="w-5 h-5" /> : <ShieldCheck className="w-5 h-5" />}
+              {isExpired ? <AlertTriangle className="w-6 h-6" /> : <ShieldCheck className="w-6 h-6" />}
             </div>
             <div>
               <div className="flex items-center gap-1.5">
@@ -211,16 +260,16 @@ export const VerifyCard: React.FC = () => {
                 </span>
                 <span className="inline-block w-2 h-2 rounded-full animate-pulse bg-current" />
               </div>
-              <p className="text-[11px] opacity-80 mt-0.5">
+              <p className="text-[11px] opacity-90 mt-0.5">
                 {isExpired
-                  ? `Expired on ${formatDisplayDate(employee.validUntil)}`
-                  : `Valid until ${formatDisplayDate(employee.validUntil)}`}
+                  ? `Access expired on ${formatDisplayDate(employee.validUntil)}`
+                  : `Authenticated by digital security seal. Valid through ${formatDisplayDate(employee.validUntil)}`}
               </p>
             </div>
           </div>
 
           <span
-            className={`text-[10px] font-mono font-bold px-2 py-1 rounded-md uppercase tracking-wider ${
+            className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg uppercase tracking-wider shrink-0 ${
               isExpired ? 'bg-rose-200 text-rose-900' : 'bg-emerald-200 text-emerald-900'
             }`}
           >
@@ -228,49 +277,259 @@ export const VerifyCard: React.FC = () => {
           </span>
         </div>
 
-        {/* Card View Switcher */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div>
-              <h2 className="text-sm font-bold text-slate-900">{employee.name}</h2>
-              <p className="text-xs text-slate-500 font-mono">
-                ID: {employee.id} • {employee.designation}
-              </p>
+        {/* Primary Profile Summary Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4">
+            {/* Photo Avatar */}
+            <div className="w-20 h-24 rounded-xl border-2 border-black overflow-hidden bg-slate-100 shrink-0 flex items-center justify-center shadow-xs">
+              {employee.photoUrl ? (
+                <img
+                  src={employee.photoUrl}
+                  alt={employee.name}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover object-top"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    const src = target.src;
+                    if (src.includes('lh3.googleusercontent.com/d/')) {
+                      const match = src.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                      if (match && match[1]) {
+                        target.src = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w1000`;
+                        return;
+                      }
+                    } else if (src.includes('drive.google.com/thumbnail')) {
+                      const match = src.match(/id=([a-zA-Z0-9_-]+)/);
+                      if (match && match[1]) {
+                        target.src = `https://lh3.googleusercontent.com/d/${match[1]}`;
+                        return;
+                      }
+                    }
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent && !parent.querySelector('.emp-avatar-fb')) {
+                      const fb = document.createElement('div');
+                      fb.className = 'emp-avatar-fb text-sm font-black text-slate-500 uppercase';
+                      fb.textContent = employee.name.slice(0, 2);
+                      parent.appendChild(fb);
+                    }
+                  }}
+                />
+              ) : (
+                <User className="w-8 h-8 text-slate-400" />
+              )}
             </div>
 
-            <div className="flex bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs">
+            {/* Core Info & Action Buttons */}
+            <div className="flex-1 text-center sm:text-left min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                <div>
+                  <h2 className="text-lg font-black text-slate-900 tracking-tight leading-tight">
+                    {employee.name}
+                  </h2>
+                  <p className="text-xs font-bold text-orange-600 uppercase tracking-wide mt-0.5">
+                    {employee.designation} • <span className="text-slate-600">{employee.department}</span>
+                  </p>
+                </div>
+
+                <span className="font-mono text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg self-center sm:self-auto">
+                  ID: {employee.id}
+                </span>
+              </div>
+
+              {/* Direct Quick Actions: Call & Email */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-3 pt-3 border-t border-slate-100">
+                {employee.phone && (
+                  <a
+                    href={`tel:${employee.phone}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold transition-colors"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-orange-600" />
+                    <span>Call: {employee.phone}</span>
+                  </a>
+                )}
+
+                {employee.email && (
+                  <a
+                    href={`mailto:${employee.email}`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold transition-colors"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-orange-600" />
+                    <span className="truncate max-w-[200px]">{employee.email}</span>
+                  </a>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleCopyAllData}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-orange-600" />}
+                  <span>{copied ? 'Copied to Clipboard!' : 'Copy All Data'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Complete Employee Verified Data Grid (Every Field) */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+              <User className="w-4 h-4 text-orange-600" />
+              <span>Full Employee Credentials Record</span>
+            </h3>
+            <span className="text-[10px] text-slate-400 font-mono">CR80 Identity Standard</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
+            {/* Employee ID */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">EMPLOYEE ID</span>
+              <span className="font-mono font-bold text-slate-900 text-sm mt-0.5 block">{employee.id}</span>
+            </div>
+
+            {/* Full Name */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">FULL NAME</span>
+              <span className="font-bold text-slate-900 text-sm mt-0.5 block truncate">{employee.name}</span>
+            </div>
+
+            {/* Designation */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">DESIGNATION / ROLE</span>
+              <span className="font-bold text-orange-600 text-xs mt-0.5 block truncate">{employee.designation}</span>
+            </div>
+
+            {/* Department */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">DEPARTMENT</span>
+              <span className="font-semibold text-slate-800 text-xs mt-0.5 block truncate">{employee.department}</span>
+            </div>
+
+            {/* Date of Birth */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">DATE OF BIRTH (DOB)</span>
+              <span className="font-mono font-bold text-slate-900 text-xs mt-0.5 block">
+                {employee.dob ? formatDisplayDate(employee.dob) : 'Not Specified'}
+              </span>
+            </div>
+
+            {/* Blood Group */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">BLOOD GROUP</span>
+              <span className="font-bold text-orange-600 text-xs mt-0.5 inline-flex items-center gap-1">
+                <HeartPulse className="w-3.5 h-3.5 text-rose-500" />
+                <span>{employee.bloodGroup || 'Not Specified'}</span>
+              </span>
+            </div>
+
+            {/* Phone */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">PHONE / MOBILE</span>
+              <span className="font-mono font-semibold text-slate-800 text-xs mt-0.5 block">
+                {employee.phone ? (
+                  <a href={`tel:${employee.phone}`} className="hover:underline text-indigo-600">
+                    {employee.phone}
+                  </a>
+                ) : (
+                  'Not Specified'
+                )}
+              </span>
+            </div>
+
+            {/* Email */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">EMAIL ADDRESS</span>
+              <span className="font-sans font-semibold text-slate-800 text-xs mt-0.5 block truncate">
+                {employee.email ? (
+                  <a href={`mailto:${employee.email}`} className="hover:underline text-indigo-600">
+                    {employee.email}
+                  </a>
+                ) : (
+                  'Not Specified'
+                )}
+              </span>
+            </div>
+
+            {/* Date of Joining */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">JOINING DATE</span>
+              <span className="font-mono font-semibold text-slate-800 text-xs mt-0.5 block">
+                {formatDisplayDate(employee.joiningDate)}
+              </span>
+            </div>
+
+            {/* Issue Date */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">CARD ISSUE DATE</span>
+              <span className="font-mono font-semibold text-slate-800 text-xs mt-0.5 block">
+                {formatDisplayDate(employee.issueDate)}
+              </span>
+            </div>
+
+            {/* Expiry Date */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">VALID UNTIL / EXPIRY</span>
+              <span className="font-mono font-black text-rose-600 text-xs mt-0.5 block">
+                {formatDisplayDate(employee.validUntil)}
+              </span>
+            </div>
+
+            {/* Company Name */}
+            <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100">
+              <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-wider">ORGANIZATION</span>
+              <span className="font-bold text-slate-900 text-xs mt-0.5 block truncate">
+                {activeCompany.name}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Interactive Digital ID Card with Downloads */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                <Smartphone className="w-4 h-4 text-orange-600" />
+                <span>Digital ID Badge Card</span>
+              </h3>
+              <p className="text-[11px] text-slate-500">Official CR80 Card (85.60 × 53.98 mm)</p>
+            </div>
+
+            {/* Front / Back Toggle Buttons */}
+            <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
               <button
                 type="button"
                 onClick={() => setActiveSide('front')}
-                className={`px-3 py-1 font-semibold rounded-md transition-all cursor-pointer ${
+                className={`px-3 py-1 font-semibold rounded-lg transition-all cursor-pointer ${
                   activeSide === 'front'
                     ? 'bg-white text-orange-600 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Front
+                Front Face
               </button>
               <button
                 type="button"
                 onClick={() => setActiveSide('back')}
-                className={`px-3 py-1 font-semibold rounded-md transition-all cursor-pointer ${
+                className={`px-3 py-1 font-semibold rounded-lg transition-all cursor-pointer ${
                   activeSide === 'back'
                     ? 'bg-white text-orange-600 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Back
+                Back Face
               </button>
             </div>
           </div>
 
           {/* Interactive Card Presentation */}
           <div className="flex justify-center py-2 overflow-x-auto">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 shadow-inner flex items-center justify-center">
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 shadow-inner flex items-center justify-center">
               {activeSide === 'front' ? (
-                <IDCardFront employee={employee} company={companySettings} className="shadow-md" />
+                <IDCardFront employee={employee} company={activeCompany} className="shadow-md" />
               ) : (
-                <IDCardBack employee={employee} company={companySettings} className="shadow-md" />
+                <IDCardBack employee={employee} company={activeCompany} className="shadow-md" />
               )}
             </div>
           </div>
@@ -288,18 +547,18 @@ export const VerifyCard: React.FC = () => {
             aria-hidden="true"
           >
             <div ref={frontRef} style={{ width: '85.6mm', height: '53.98mm' }}>
-              <IDCardFront employee={employee} company={companySettings} />
+              <IDCardFront employee={employee} company={activeCompany} />
             </div>
             <div ref={backRef} style={{ width: '85.6mm', height: '53.98mm' }}>
-              <IDCardBack employee={employee} company={companySettings} />
+              <IDCardBack employee={employee} company={activeCompany} />
             </div>
           </div>
 
           {/* Download Action Buttons */}
-          <div className="space-y-2 pt-2">
+          <div className="space-y-2 pt-2 border-t border-slate-100">
             <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
-              <Smartphone className="w-3.5 h-3.5 text-orange-600" />
-              <span>Download & Save ID Card to Phone</span>
+              <Download className="w-3.5 h-3.5 text-orange-600" />
+              <span>Download & Print Official ID Card</span>
             </div>
 
             {exportMessage && (
@@ -316,7 +575,7 @@ export const VerifyCard: React.FC = () => {
                 className="flex items-center justify-center gap-2 px-4 py-2.5 bg-orange-600 hover:bg-orange-700 active:scale-98 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
               >
                 <Download className="w-4 h-4" />
-                <span>Download Front (PNG)</span>
+                <span>Front Face (PNG)</span>
               </button>
 
               <button
@@ -326,7 +585,7 @@ export const VerifyCard: React.FC = () => {
                 className="flex items-center justify-center gap-2 px-4 py-2.5 bg-slate-800 hover:bg-slate-900 active:scale-98 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer"
               >
                 <Download className="w-4 h-4" />
-                <span>Download Back (PNG)</span>
+                <span>Back Face (PNG)</span>
               </button>
 
               <button
@@ -352,54 +611,13 @@ export const VerifyCard: React.FC = () => {
           </div>
         </div>
 
-        {/* Employee Verified Details Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-xs space-y-3">
-          <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5 pb-2 border-b border-slate-100">
-            <User className="w-3.5 h-3.5 text-orange-600" />
-            <span>Badge Credentials Summary</span>
-          </h3>
-
-          <div className="grid grid-cols-2 gap-2.5 text-xs">
-            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-              <span className="text-[10px] text-slate-400 block font-semibold">EMPLOYEE ID</span>
-              <span className="font-mono font-bold text-slate-800 text-xs">{employee.id}</span>
-            </div>
-
-            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-              <span className="text-[10px] text-slate-400 block font-semibold">DEPARTMENT</span>
-              <span className="font-semibold text-slate-800 text-xs truncate block">{employee.department}</span>
-            </div>
-
-            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-              <span className="text-[10px] text-slate-400 block font-semibold">DATE OF BIRTH</span>
-              <span className="font-mono font-bold text-slate-800 text-xs">
-                {employee.dob ? formatDisplayDate(employee.dob) : 'N/A'}
-              </span>
-            </div>
-
-            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-              <span className="text-[10px] text-slate-400 block font-semibold">BLOOD GROUP</span>
-              <span className="font-bold text-orange-600 text-xs">{employee.bloodGroup || 'N/A'}</span>
-            </div>
-
-            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-              <span className="text-[10px] text-slate-400 block font-semibold">ISSUE DATE</span>
-              <span className="font-mono text-slate-700 text-xs">{formatDisplayDate(employee.issueDate)}</span>
-            </div>
-
-            <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-              <span className="text-[10px] text-slate-400 block font-semibold">EXPIRY DATE</span>
-              <span className="font-mono font-bold text-slate-900 text-xs">{formatDisplayDate(employee.validUntil)}</span>
-            </div>
-          </div>
-        </div>
-
         {/* Legal Disclaimer Footer */}
-        <div className="text-center text-[10px] text-slate-400 max-w-sm mx-auto leading-relaxed">
-          {companySettings.disclaimerText ||
+        <div className="text-center text-[10px] text-slate-400 max-w-sm mx-auto leading-relaxed pt-2">
+          {activeCompany.disclaimerText ||
             'This card is strictly temporary and remains the property of the company. Scan verified by Google Lens.'}
         </div>
       </div>
     </div>
   );
 };
+

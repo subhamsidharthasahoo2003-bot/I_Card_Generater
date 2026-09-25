@@ -11,6 +11,9 @@ export interface QRCardPayload {
   email?: string;
   dob?: string;
   bloodGroup?: string;
+  address?: string;
+  joiningDate?: string;
+  photoUrl?: string;
   type?: string;
   company?: string;
   baseUrl?: string;
@@ -18,21 +21,25 @@ export interface QRCardPayload {
 
 /**
  * Builds the verification and download URL for an employee card.
- * Encodes card attributes so any smartphone scanning with Google Lens
- * can verify access and download the card without requiring a backend database.
+ * Encodes all card attributes and photo references so any smartphone scanning with Google Lens
+ * verifies all employee data and downloads the card without requiring a backend database.
  */
 export function buildVerificationUrl(payload: QRCardPayload): string {
   let origin = '';
   if (payload.baseUrl && payload.baseUrl.trim()) {
     origin = payload.baseUrl.trim().replace(/\/+$/, '');
   } else if (typeof window !== 'undefined' && window.location && window.location.origin) {
-    origin = window.location.origin;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      origin = 'https://i-card-generater.vercel.app';
+    } else {
+      origin = window.location.origin;
+    }
   } else {
-    origin = 'https://trackepay.com';
+    origin = 'https://i-card-generater.vercel.app';
   }
 
-  // Create lightweight compact data payload
-  const compactData = {
+  // Create compact data payload containing all employee attributes
+  const compactData: Record<string, string> = {
     id: payload.id,
     n: payload.name,
     d: payload.designation || '',
@@ -43,8 +50,22 @@ export function buildVerificationUrl(payload: QRCardPayload): string {
     bg: payload.bloodGroup || '',
     iss: payload.issueDate,
     exp: payload.validUntil,
-    c: payload.company || ''
+    c: payload.company || '',
+    jd: payload.joiningDate || '',
+    addr: payload.address || ''
   };
+
+  // If photo is Google Drive, extract ID to keep QR code lightweight and high density
+  if (payload.photoUrl) {
+    const driveMatch =
+      payload.photoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/) ||
+      payload.photoUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (driveMatch && driveMatch[1]) {
+      compactData.ph = driveMatch[1];
+    } else if (payload.photoUrl.startsWith('http://') || payload.photoUrl.startsWith('https://')) {
+      compactData.ph = payload.photoUrl;
+    }
+  }
 
   let encoded = '';
   try {
@@ -64,6 +85,14 @@ export function decodeVerificationData(dataParam: string): Partial<QRCardPayload
   try {
     const jsonStr = decodeURIComponent(atob(dataParam));
     const obj = JSON.parse(jsonStr);
+    let photoUrl = '';
+    if (obj.ph) {
+      if (obj.ph.startsWith('http://') || obj.ph.startsWith('https://')) {
+        photoUrl = obj.ph;
+      } else {
+        photoUrl = `https://lh3.googleusercontent.com/d/${obj.ph}`;
+      }
+    }
     return {
       id: obj.id,
       name: obj.n,
@@ -75,11 +104,22 @@ export function decodeVerificationData(dataParam: string): Partial<QRCardPayload
       bloodGroup: obj.bg,
       issueDate: obj.iss,
       validUntil: obj.exp,
-      company: obj.c
+      company: obj.c,
+      joiningDate: obj.jd,
+      address: obj.addr,
+      photoUrl
     };
   } catch {
     try {
       const obj = JSON.parse(decodeURIComponent(dataParam));
+      let photoUrl = '';
+      if (obj.ph) {
+        if (obj.ph.startsWith('http://') || obj.ph.startsWith('https://')) {
+          photoUrl = obj.ph;
+        } else {
+          photoUrl = `https://lh3.googleusercontent.com/d/${obj.ph}`;
+        }
+      }
       return {
         id: obj.id,
         name: obj.n,
@@ -91,7 +131,10 @@ export function decodeVerificationData(dataParam: string): Partial<QRCardPayload
         bloodGroup: obj.bg,
         issueDate: obj.iss,
         validUntil: obj.exp,
-        company: obj.c
+        company: obj.c,
+        joiningDate: obj.jd,
+        address: obj.addr,
+        photoUrl
       };
     } catch (e) {
       console.error('Error decoding verification data:', e);

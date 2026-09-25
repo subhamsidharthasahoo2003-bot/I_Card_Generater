@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf';
 import { renderElementToCanvas } from '../utils/canvasExportUtils';
+import { PrintDensity } from '../types/idCard';
 
 export interface PDFExportProgress {
   current: number;
@@ -7,14 +8,28 @@ export interface PDFExportProgress {
   statusText: string;
 }
 
+export interface PDFExportOptions {
+  density?: PrintDensity;
+  onProgress?: (progress: PDFExportProgress) => void;
+}
+
 /**
  * Generates an A4 PDF from an array of CR80 card DOM elements.
- * Arranges up to 8 cards per page (2 columns x 4 rows) preserving exact physical dimensions.
+ * Supports:
+ * - 'grid': 8 cards per page (2 columns x 4 rows)
+ * - 'single': 1 card per page (One by One)
  */
 export async function generateA4PDF(
   cardElements: HTMLElement[],
-  onProgress?: (progress: PDFExportProgress) => void
+  optionsOrProgress?: PDFExportOptions | ((progress: PDFExportProgress) => void)
 ): Promise<void> {
+  const options: PDFExportOptions =
+    typeof optionsOrProgress === 'function'
+      ? { onProgress: optionsOrProgress }
+      : optionsOrProgress || {};
+
+  const density = options.density || 'grid';
+  const onProgress = options.onProgress;
   if (cardElements.length === 0) {
     throw new Error('No cards selected to generate PDF.');
   }
@@ -34,7 +49,8 @@ export async function generateA4PDF(
   const topMarginMm = 14;
   const rowGapMm = 10;
 
-  const cardsPerPage = 8; // 2 cols x 4 rows
+  const isSingle = density === 'single';
+  const cardsPerPage = isSingle ? 1 : 8; // 1 per page or 2 cols x 4 rows
   const totalCards = cardElements.length;
 
   for (let index = 0; index < totalCards; index++) {
@@ -48,17 +64,25 @@ export async function generateA4PDF(
       });
     }
 
-    // Determine page and position within the page
-    const pageCardIndex = index % cardsPerPage;
-    const colIndex = pageCardIndex % 2; // 0 or 1
-    const rowIndex = Math.floor(pageCardIndex / 2); // 0, 1, 2, or 3
-
-    if (index > 0 && pageCardIndex === 0) {
+    if (index > 0 && index % cardsPerPage === 0) {
       pdf.addPage('a4', 'portrait');
     }
 
-    const posX = leftMarginMm + colIndex * (cardWidthMm + colGapMm);
-    const posY = topMarginMm + rowIndex * (cardHeightMm + rowGapMm);
+    let posX: number;
+    let posY: number;
+
+    if (isSingle) {
+      // Cleanly center the card horizontally and vertically on the A4 page
+      posX = (210 - cardWidthMm) / 2;
+      posY = (297 - cardHeightMm) / 2;
+    } else {
+      // Determine position within the 8-card grid
+      const pageCardIndex = index % cardsPerPage;
+      const colIndex = pageCardIndex % 2; // 0 or 1
+      const rowIndex = Math.floor(pageCardIndex / 2); // 0, 1, 2, or 3
+      posX = leftMarginMm + colIndex * (cardWidthMm + colGapMm);
+      posY = topMarginMm + rowIndex * (cardHeightMm + rowGapMm);
+    }
 
     // Capture card DOM element with high DPI and sanitized oklch colors
     const canvas = await renderElementToCanvas(cardEl, 3);

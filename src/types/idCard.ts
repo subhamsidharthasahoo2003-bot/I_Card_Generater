@@ -7,6 +7,7 @@ export interface ValidityConfig {
 }
 
 export type PrintLayoutMode = 'both' | 'front-only' | 'back-only';
+export type PrintDensity = 'grid' | 'single';
 
 export interface IDCardGenerationOptions {
   includeQR: boolean;
