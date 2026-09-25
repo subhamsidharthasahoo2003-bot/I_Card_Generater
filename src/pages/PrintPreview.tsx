@@ -5,10 +5,14 @@ import { A4PrintSheet } from '../components/print/A4PrintSheet';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { DownloadOneByOneModal } from '../components/print/DownloadOneByOneModal';
 import { PrintOneByOneModal } from '../components/print/PrintOneByOneModal';
+import { IDCardFront } from '../components/id-card/IDCardFront';
+import { IDCardBack } from '../components/id-card/IDCardBack';
 import { useToast } from '../components/ui/Toast';
 import { PrintLayoutMode, PrintDensity } from '../types/idCard';
+import { Employee } from '../types/employee';
 import { generateA4PDF } from '../services/pdfService';
 import { downloadSingleCardPDF, downloadCardImage } from '../services/cardExportService';
+import { convertImageSrcToBase64 } from '../services/photoService';
 import { useNavigate, Link } from 'react-router-dom';
 import { Printer, FileSpreadsheet, Eye, Info, CheckCircle2 } from 'lucide-react';
 
@@ -30,6 +34,11 @@ export const PrintPreview: React.FC = () => {
   const [printScope, setPrintScope] = useState<'selected' | 'all'>('selected');
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isConfirmClearOpen, setIsConfirmClearOpen] = useState(false);
+
+  // Dedicated offscreen single-card exporter state & refs
+  const [exportingEmployee, setExportingEmployee] = useState<Employee | null>(null);
+  const exportFrontRef = useRef<HTMLDivElement>(null);
+  const exportBackRef = useRef<HTMLDivElement>(null);
 
   // One by one modals & progress state
   const [isDownloadOneByOneOpen, setIsDownloadOneByOneOpen] = useState(false);
@@ -122,48 +131,63 @@ export const PrintPreview: React.FC = () => {
       for (let i = 0; i < activeEmployees.length; i++) {
         if (cancelDownloadRef.current) {
           setOneByOneStatus('cancelled');
+          setExportingEmployee(null);
           return;
         }
 
         const emp = activeEmployees[i];
         setOneByOneIndex(i);
 
-        let frontEl: HTMLElement | null = null;
-        let backEl: HTMLElement | null = null;
-
-        if (layoutMode === 'both') {
-          frontEl = cardContainerRefs.current[i * 2] || null;
-          backEl = cardContainerRefs.current[i * 2 + 1] || null;
-        } else if (layoutMode === 'front-only') {
-          frontEl = cardContainerRefs.current[i] || null;
-        } else if (layoutMode === 'back-only') {
-          backEl = cardContainerRefs.current[i] || null;
+        // Pre-convert employee photo to Base64 to eliminate CORS/blank image issues in html2canvas
+        let base64Photo = emp.photoUrl;
+        if (emp.photoUrl) {
+          try {
+            base64Photo = await convertImageSrcToBase64(emp.photoUrl);
+          } catch {
+            // keep original
+          }
         }
+
+        const readyEmp = { ...emp, photoUrl: base64Photo };
+        setExportingEmployee(readyEmp);
+
+        // Wait for React to mount in the dedicated offscreen stage
+        await new Promise(res => setTimeout(res, 130));
+
+        const frontEl = exportFrontRef.current;
+        const backEl = exportBackRef.current;
 
         const safeName = emp.name.replace(/[^a-zA-Z0-9_-]/g, '_');
 
         if (oneByOneFormat === 'pdf') {
           if (frontEl) {
-            await downloadSingleCardPDF(frontEl, backEl, `${emp.id}_${safeName}_ID_Card.pdf`);
-          } else if (backEl) {
-            await downloadSingleCardPDF(backEl, null, `${emp.id}_${safeName}_Back.pdf`);
+            await downloadSingleCardPDF(
+              frontEl,
+              layoutMode === 'both' ? backEl : null,
+              `${emp.id}_${safeName}_ID_Card.pdf`
+            );
           }
         } else {
           // PNG image download
-          if (frontEl) {
-            await downloadCardImage(frontEl, `${emp.id}_${safeName}_Front.png`);
+          if (layoutMode === 'both' || layoutMode === 'front-only') {
+            if (frontEl) {
+              await downloadCardImage(frontEl, `${emp.id}_${safeName}_Front.png`);
+            }
           }
-          if (backEl) {
-            await downloadCardImage(backEl, `${emp.id}_${safeName}_Back.png`);
+          if (layoutMode === 'both' || layoutMode === 'back-only') {
+            if (backEl) {
+              await downloadCardImage(backEl, `${emp.id}_${safeName}_Back.png`);
+            }
           }
         }
 
         recordPrintJob(1);
 
-        // Pause 500ms between downloads so browser doesn't block sequential file triggers
-        await new Promise(res => setTimeout(res, 500));
+        // Brief delay between downloads so the browser doesn't throttle multiple downloads
+        await new Promise(res => setTimeout(res, 400));
       }
 
+      setExportingEmployee(null);
       setOneByOneStatus('completed');
       showToast(
         'success',
@@ -175,6 +199,7 @@ export const PrintPreview: React.FC = () => {
       const msg = err instanceof Error ? err.message : 'Sequential download failed';
       setOneByOneError(msg);
       setOneByOneStatus('error');
+      setExportingEmployee(null);
       showToast('error', 'Download Error', msg);
     }
   };
@@ -182,6 +207,7 @@ export const PrintPreview: React.FC = () => {
   const handleCancelDownloadOneByOne = () => {
     cancelDownloadRef.current = true;
     setOneByOneStatus('cancelled');
+    setExportingEmployee(null);
   };
 
   const handleConfirmClear = () => {
@@ -295,6 +321,30 @@ export const PrintPreview: React.FC = () => {
           density={density}
           cardContainerRefs={cardContainerRefs}
         />
+      </div>
+
+      {/* Dedicated Offscreen Export Container for 100% Crisp, Full-Fidelity Single Card Exports */}
+      <div
+        style={{
+          position: 'fixed',
+          left: '-9999px',
+          top: 0,
+          pointerEvents: 'none',
+          zIndex: -9999,
+          opacity: 1
+        }}
+        aria-hidden="true"
+      >
+        {exportingEmployee && (
+          <div style={{ width: '85.6mm', height: '53.98mm' }}>
+            <div ref={exportFrontRef} style={{ width: '85.6mm', height: '53.98mm' }}>
+              <IDCardFront employee={exportingEmployee} company={companySettings} isPrintMode={true} />
+            </div>
+            <div ref={exportBackRef} style={{ width: '85.6mm', height: '53.98mm' }}>
+              <IDCardBack employee={exportingEmployee} company={companySettings} isPrintMode={true} />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Download One by One Modal */}

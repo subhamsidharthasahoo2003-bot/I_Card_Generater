@@ -88,30 +88,34 @@ export const A4PrintSheet: React.FC<A4PrintSheetProps> = ({
                 return (
                   <div
                     key={`${item.employee.id}-${item.side}-${idx}`}
-                    ref={el => {
-                      if (cardContainerRefs && cardContainerRefs.current) {
-                        cardContainerRefs.current[currentGlobalIdx] = el;
-                      }
-                    }}
                     className="relative flex justify-center items-center p-1"
                     style={{
                       breakInside: 'avoid',
                       pageBreakInside: 'avoid'
                     }}
                   >
-                    {item.side === 'front' ? (
-                      <IDCardFront
-                        employee={item.employee}
-                        company={company}
-                        isPrintMode={true}
-                      />
-                    ) : (
-                      <IDCardBack
-                        employee={item.employee}
-                        company={company}
-                        isPrintMode={true}
-                      />
-                    )}
+                    <div
+                      ref={el => {
+                        if (cardContainerRefs && cardContainerRefs.current) {
+                          cardContainerRefs.current[currentGlobalIdx] = el;
+                        }
+                      }}
+                      style={{ width: '85.6mm', height: '53.98mm' }}
+                    >
+                      {item.side === 'front' ? (
+                        <IDCardFront
+                          employee={item.employee}
+                          company={company}
+                          isPrintMode={true}
+                        />
+                      ) : (
+                        <IDCardBack
+                          employee={item.employee}
+                          company={company}
+                          isPrintMode={true}
+                        />
+                      )}
+                    </div>
 
                     {/* Corner Cut Guides */}
                     <div className="absolute -top-2 -left-2 w-3 h-3 border-t-2 border-l-2 border-slate-300 pointer-events-none" />
@@ -132,31 +136,34 @@ export const A4PrintSheet: React.FC<A4PrintSheetProps> = ({
                 return (
                   <div
                     key={`${item.employee.id}-${item.side}-${idx}`}
-                    ref={el => {
-                      if (cardContainerRefs && cardContainerRefs.current) {
-                        cardContainerRefs.current[currentGlobalIdx] = el;
-                      }
-                    }}
                     className="relative flex justify-center items-center p-0.5"
                     style={{
                       breakInside: 'avoid',
                       pageBreakInside: 'avoid'
                     }}
                   >
-                    {/* Card Element */}
-                    {item.side === 'front' ? (
-                      <IDCardFront
-                        employee={item.employee}
-                        company={company}
-                        isPrintMode={true}
-                      />
-                    ) : (
-                      <IDCardBack
-                        employee={item.employee}
-                        company={company}
-                        isPrintMode={true}
-                      />
-                    )}
+                    <div
+                      ref={el => {
+                        if (cardContainerRefs && cardContainerRefs.current) {
+                          cardContainerRefs.current[currentGlobalIdx] = el;
+                        }
+                      }}
+                      style={{ width: '85.6mm', height: '53.98mm' }}
+                    >
+                      {item.side === 'front' ? (
+                        <IDCardFront
+                          employee={item.employee}
+                          company={company}
+                          isPrintMode={true}
+                        />
+                      ) : (
+                        <IDCardBack
+                          employee={item.employee}
+                          company={company}
+                          isPrintMode={true}
+                        />
+                      )}
+                    </div>
 
                     {/* Corner Cut Guides (Thin marks for cutting along the lines) */}
                     <div className="absolute -top-1 -left-1 w-2 h-2 border-t border-l border-slate-300 pointer-events-none" />

@@ -272,8 +272,8 @@ export async function renderElementToCanvas(
   customScale: number = 3
 ): Promise<HTMLCanvasElement> {
   const rect = element.getBoundingClientRect();
-  const width = Math.max(rect.width, element.offsetWidth, 323);
-  const height = Math.max(rect.height, element.offsetHeight, 204);
+  const width = Math.max(Math.round(rect.width), element.offsetWidth, 324);
+  const height = Math.max(Math.round(rect.height), element.offsetHeight, 204);
 
   // Patch main window getComputedStyle during html2canvas execution as well
   const restoreMainWindow = patchWindowGetComputedStyle(window);
@@ -282,11 +282,15 @@ export async function renderElementToCanvas(
     return await html2canvas(element, {
       scale: customScale,
       useCORS: true,
-      allowTaint: false,
+      allowTaint: true,
       logging: false,
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0,
       width,
       height,
-      imageTimeout: 4000,
+      imageTimeout: 6000,
       backgroundColor: '#ffffff',
       onclone: clonedDoc => {
         sanitizeClonedDocument(clonedDoc);

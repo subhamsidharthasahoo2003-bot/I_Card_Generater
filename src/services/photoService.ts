@@ -97,6 +97,64 @@ export function formatGoogleDriveImageUrl(url: string): string {
 }
 
 /**
+ * Converts any image URL (Google Drive, remote web, etc.) to a Base64 data URL
+ * so that html2canvas and jsPDF can render it with 100% fidelity without CORS or blank images.
+ */
+export async function convertImageSrcToBase64(url: string): Promise<string> {
+  if (!url) return '';
+  if (url.startsWith('data:')) return url;
+
+  let directUrl = url;
+  if (url.includes('drive.google.com') || url.includes('googleusercontent.com')) {
+    directUrl = formatGoogleDriveImageUrl(url);
+  }
+
+  // Candidates to try: CORS proxy with raw output, direct URL, etc.
+  const candidates = [
+    `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&output=png`,
+    directUrl,
+    url
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const img = new window.Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth || img.width || 300;
+            canvas.height = img.naturalHeight || img.height || 360;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              reject(new Error('No canvas 2D context'));
+              return;
+            }
+            ctx.drawImage(img, 0, 0);
+            const res = canvas.toDataURL('image/png');
+            resolve(res);
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.onerror = reject;
+        img.src = candidate;
+        setTimeout(() => reject(new Error('Image fetch timeout')), 3500);
+      });
+
+      if (dataUrl && dataUrl.length > 100) {
+        return dataUrl;
+      }
+    } catch {
+      // try next candidate
+    }
+  }
+
+  return url;
+}
+
+/**
  * Converts a single Image file to a Base64 Data URL
  */
 export function fileToDataUrl(file: File): Promise<string> {
